@@ -16,6 +16,18 @@ This kind of implementation is inneficient and a based quantum multiplexors one 
 import numpy as np
 from qat.lang.AQASM import QRoutine, AbstractGate, X, RY 
 
+def TestBins(array, text='Probability'):
+    """
+    Testing Condition for numpy arrays. The length of the array must be 2^n with n an int.
+    Inputs:
+    """
+
+    nqbits_ = np.log2(len(array))
+    Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
+    ConditionStr = 'Length of the {} Array must be of dimension 2^n with n an int. In this case is: {}.'.format(text, nqbits_)    
+    assert Condition, ConditionStr
+    return int(nqbits_)
+
 
 def LeftConditionalProbability(InitialBins, Probability):
     """
@@ -118,16 +130,17 @@ def CreatePG(ProbabilityArray):
     """
     
     #Number of Input qbits for the QWuantum Gate
-    nqbits_ = np.log2(len(ProbabilityArray))
-    #Probability array must have a dimension of 2^n.
-    Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    if Condition == False:
-        raise ValueError(
-            'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(
-                nqbits_
-            )
-        )
-    nqbits_ = int(nqbits_)
+    #nqbits_ = np.log2(len(ProbabilityArray))
+    ##Probability array must have a dimension of 2^n.
+    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
+    #if Condition == False:
+    #    raise ValueError(
+    #        'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(
+    #            nqbits_
+    #        )
+    #    )
+    #nqbits_ = int(nqbits_)
+    nqbits_ = TestBins(ProbabilityArray, 'Probability')
     def LoadProbability_generator(NumbeOfQbits):
         
         qrout = QRoutine()
@@ -178,14 +191,16 @@ def CreateLoadFunctionGate(FunctionArray):
     """
     
     #Number of qbits to codify Input Function
-    nqbits_ = np.log2(len(FunctionArray))
-    #FunctionArray array must have a dimension of 2^n.
-    Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    if Condition == False:
-        raise ValueError(
-            'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(nqbits)
-        )
-    nqbits_ = int(nqbits_)
+    #nqbits_ = np.log2(len(FunctionArray))
+    ##FunctionArray array must have a dimension of 2^n.
+    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
+    #if Condition == False:
+    #    raise ValueError(
+    #        'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(nqbits)
+    #    )
+    #nqbits_ = int(nqbits_)
+    nqbits_ = TestBins(FunctionArray, 'Function')
+
     #Calculation of the rotation angles
     Thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
     
