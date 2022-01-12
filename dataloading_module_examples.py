@@ -27,12 +27,12 @@ def TestBins(array, text='Probability'):
 
 def LoadProbabilityProgram(p_X):
     """
-    Creates a Quantum Circuit for loading an input numpy array with a probability distribution.
+    Creates a Quantum Program for loading an input numpy array with a probability distribution.
     Inputs:
         * p_X: np.array. Probability distribution of size m. Mandatory: m=2^n where n is the number
         qbits of the quantum circuit. 
     Outputs:
-        * circuit: qlm circuit for loading input probability
+        * qprog: qlm program for loading input probability
     """
     #Qbits of the Quantum circuit depends on Probability length
     nqbits = TestBins(p_X, 'Probability')
@@ -45,9 +45,7 @@ def LoadProbabilityProgram(p_X):
     P_gate = CreatePG(p_X)
     #Apply Abstract gate to the qbits
     qprog.apply(P_gate, qbits)
-    #Creation of the Quantum Circuit
-    circuit = qprog.to_circ()
-    return circuit
+    return qprog
 
 
 def LoadIntegralProgram(f_X):
@@ -57,7 +55,7 @@ def LoadIntegralProgram(f_X):
         * f_X: np.array. Function evaluation of size m. Mandatory: m=2^n where n is the number
         qbits of the quantum circuit. 
     Outputs:
-        * circuit: qlm circuit for loading integral of the input function
+        * program: qlm program for loading integral of the input function
     """
     #Qbits of the Quantum circuit depends on Function array length
     nqbits = TestBins(f_X, 'Function')
@@ -73,6 +71,35 @@ def LoadIntegralProgram(f_X):
     R_gate = CreateLoadFunctionGate(f_X)
     #Apply Abstract gate to the qbits
     qprog.apply(R_gate, qbits)
-    #Creation of the Quantum Circuit
-    circuit = qprog.to_circ()
-    return circuit
+    return qprog
+
+def LoadingData(p_X, f_X):
+    """
+    Load all the mandatory data to load in a quantum program the expected value 
+    of a function f(x) over a x following a probability distribution p(x).
+    Inputs:
+        * p_X: np.array. Array of the discretized probability density
+        * f_X: np.array. Array of the discretized funcion
+    Outpus:
+        * qprog: quantum program for loading the expected value of f(x) for x following a p(x) distribution
+    """
+    #Testing input
+    nqbits_p = TestBins(p_X, 'Probability')
+    nqbits_f = TestBins(f_X, 'Function')
+    assert nqbits_p == nqbits_f, 'Arrays lenght are not equal!!'
+    nqbits = nqbits_p
+    
+    #Creation of Gates
+    from dataloading_module import CreatePG
+    P_gate = CreatePG(p_X)    
+    from dataloading_module import CreateLoadFunctionGate
+    R_gate = CreateLoadFunctionGate(f_X)
+    
+    from qat.lang.AQASM import Program
+    qprog = Program()
+    qbits = qprog.qalloc(nqbits+1)
+    #Load Probability
+    qprog.apply(P_gate, qbits[:-1])
+    #Load integral on the last qbit
+    qprog.apply(R_gate, qbits)
+    return qprog
