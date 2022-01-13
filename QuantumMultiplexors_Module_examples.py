@@ -50,13 +50,11 @@ def PostProcessResults(Results):
     pdf = pd.concat([States, QP, QA], axis=1)
     return pdf     
 
-def LoadProbabilityProgram(p_X, X):
+def LoadProbabilityProgram(p_X):
     """
     Creates a Quantum Program for loading an input numpy array with a probability distribution.
     Inputs:
-        * p_X: np.array. Probability distribution of size m. Mandatory: m=2^n where n is the number
-        * X: np.array. Centers of the bins od the probability distribution.
-        qbits of the quantum circuit. 
+        * p_X: np.array. Probability distribution of size m. Mandatory: m=2^n where n is the number qbits of the quantum circuit. 
     Outputs:
         * qprog: qlm program for loading input probability
     """
@@ -93,8 +91,8 @@ def LoadIntegralProgram(f_X):
     for i in range(nqbits):
         qprog.apply(H, qbits[i])
     #Creation of P_gate
-    from dataloading_module import CreateLoadFunctionGate
-    R_gate = CreateLoadFunctionGate(f_X)
+    from QuantumMultiplexors_Module import LoadIntegralFunction_Gate
+    R_gate = LoadIntegralFunction_Gate(f_X)
     #Apply Abstract gate to the qbits
     qprog.apply(R_gate, qbits)
     return qprog
@@ -116,10 +114,10 @@ def LoadingData(p_X, f_X):
     nqbits = nqbits_p
     
     #Creation of Gates
-    from dataloading_module import CreatePG
-    P_gate = CreatePG(p_X)    
-    from dataloading_module import CreateLoadFunctionGate
-    R_gate = CreateLoadFunctionGate(f_X)
+    from QuantumMultiplexors_Module import LoadProbability_Gate
+    P_gate = LoadProbability_Gate(p_X)
+    from QuantumMultiplexors_Module import LoadIntegralFunction_Gate
+    R_gate = LoadIntegralFunction_Gate(f_X)
     
     from qat.lang.AQASM import Program
     qprog = Program()

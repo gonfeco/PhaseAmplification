@@ -88,7 +88,7 @@ def multiplexor_RY_m(qprog, qbits, thetas, m, j):
     multiplexor_RY_m_recurs(qprog, qbits, thetas, m, j)
     qprog.apply(CNOT, qbits[j-m], qbits[j])
     
-def LoadProbability_Gate(ProbabilityArray, CentersArray):
+def LoadProbability_Gate(ProbabilityArray):
     """
     Given a discretized probability array the function creates a AbstracGate that allows the load
     of the probability in a Quantum State. The number of qbits of the gate will be log2(len(ProbabilityArray))
