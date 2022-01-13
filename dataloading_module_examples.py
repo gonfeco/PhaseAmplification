@@ -11,19 +11,7 @@ import numpy as np
 import pandas as pd
 
 
-from dataloading_module import  get_histogram
-
-def TestBins(array, text='Probability'):
-    """
-    Testing Condition for numpy arrays. The length of the array must be 2^n with n an int.
-    Inputs:
-    """
-
-    nqbits_ = np.log2(len(array))
-    Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    ConditionStr = 'Length of the {} Array must be of dimension 2^n with n an int. In this case is: {}.'.format(text, nqbits_)    
-    assert Condition, ConditionStr
-    return int(nqbits_)
+from AuxiliarFunctions import TestBins
 
 def PostProcessResults(Results):
     """

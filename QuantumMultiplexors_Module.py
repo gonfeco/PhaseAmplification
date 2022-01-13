@@ -16,17 +16,10 @@ arXiv:quant-ph/0406176v5
 
 """
 
-def TestBins(array, text='Probability'):
-    """
-    Testing Condition for numpy arrays. The length of the array must be 2^n with n an int.
-    Inputs:
-    """
+import numpy as np
+from qat.lang.AQASM import QRoutine, AbstractGate, RY, CNOT
+from AuxiliarFunctions import TestBins, LeftConditionalProbability, get_histogram
 
-    nqbits_ = np.log2(len(array))
-    Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    ConditionStr = 'Length of the {} Array must be of dimension 2^n with n an int. In this case is: {}.'.format(text, nqbits_)    
-    assert Condition, ConditionStr
-    return int(nqbits_)
 
 def multiplexor_RY_m_recurs(qprog, qbits, thetas, m, j, sig = 1.):
     """ 
@@ -120,9 +113,17 @@ def LoadProbability_Gate(ProbabilityArray, CentersArray):
     def P_generator(nqbits):
         rout = QRoutine()
         reg = rout.new_wires(nqbits)
-        print(reg)
         # Now go iteratively trough each qubit computing the probabilities and adding the corresponding multiplexor
         for m in range(nqbits):
+
+
+            #Calculates Conditional Probability
+            ConditionalProbability = LeftConditionalProbability(m, ProbabilityArray)
+
+            
+            #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
+            thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))
+            """
             n_parts = 2**(m+1) #Compute the number of subzones which the current state is codifying
             edges = np.array([a+(b-a)*(i)/n_parts for i in range(n_parts+1)]) #Compute the edges of that subzones
         
@@ -137,6 +138,7 @@ def LoadProbability_Gate(ProbabilityArray, CentersArray):
             
             # Compute the rotation angles
             thetas = 2.0*np.arccos(np.sqrt(p_left/p_tot))
+            """
 
             if m == 0:
                 # In the first iteration it is only needed a RY gate
