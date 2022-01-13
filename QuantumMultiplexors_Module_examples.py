@@ -8,47 +8,7 @@ This script contains several examples of use of the gates implemented in the Qua
 """
 
 import numpy as np
-import pandas as pd
-
-
-from dataloading_module import  get_histogram
-
-def TestBins(array, text='Probability'):
-    """
-    Testing Condition for numpy arrays. The length of the array must be 2^n with n an int.
-    Inputs:
-    """
-
-    nqbits_ = np.log2(len(array))
-    Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    ConditionStr = 'Length of the {} Array must be of dimension 2^n with n an int. In this case is: {}.'.format(text, nqbits_)    
-    assert Condition, ConditionStr
-    return int(nqbits_)
-
-def PostProcessResults(Results):
-    """
-    Post-processing the results of simulation of a quantum circuit
-    Input:
-        * Results: result object from a simulation of a quantum circuit
-    Output:
-        * pdf: pandas datasframe. Results of the simulation. There are 3 different columns:
-            - States: posible quantum basis states
-            - Probability: probabilities of the different states
-            - Amplitude: amplitude of the different states
-    """
-    QP = []
-    States = []
-    QA = []
-    for sample in Results:
-        #print("State %s probability %s amplitude %s" % (sample.state, sample.probability, sample.amplitude))
-        QP.append(sample.probability)
-        States.append(str(sample.state))
-        QA.append(sample.amplitude)
-    QP = pd.Series(QP, name='Probability')
-    States = pd.Series(States, name='States')  
-    QA = pd.Series(QA, name='Amplitude') 
-    pdf = pd.concat([States, QP, QA], axis=1)
-    return pdf     
+from AuxiliarFunctions import TestBins, PostProcessResults
 
 def LoadProbabilityProgram(p_X):
     """
