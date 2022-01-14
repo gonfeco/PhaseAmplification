@@ -6,7 +6,7 @@ MyQLM version:
 
 """
 
-
+from qat.lang.AQASM import AbstractGate, QRoutine, X, Z
 
 
 def U_Phi0_generator(nqbits):
