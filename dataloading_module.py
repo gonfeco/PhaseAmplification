@@ -48,9 +48,9 @@ def CRBS_generator(N, ControlState, Theta):
             qrout.apply(X, qcontrol[m])
             
     #Apply the controlled rotation on the target qbit
-    cR = 'RY({})'.format(Theta) + '.ctrl()'*len(qcontrol)
     #The rotation is only applyied when qcontrol is in ControlState
-    qrout.apply(eval(cR), qcontrol, qtarget)
+    c_i_RY = RY(Theta).ctrl(len(qcontrol))
+    qrout.apply(c_i_RY, qcontrol, qtarget)
     
     #Undo the operations for using the ControlState
     #for controlling the rotation
