@@ -60,112 +60,189 @@ def CRBS_generator(N, ControlState, Theta):
     return qrout    
 
 #Using generator function an abstract gate is created
-CRBS_gate = AbstractGate("CRBS_Gate", [int, int, float])   
-CRBS_gate.set_circuit_generator(CRBS_generator)
+CRBS_gate = AbstractGate(
+    "CRBS_Gate", 
+    [int, int, float],
+    circuit_generator = CRBS_generator,
+    arity = lambda x,y,z: x+1
 
-def CreatePG(ProbabilityArray):
+)   
+
+def P_generator(Dictionary):
     """
-    Given a discretized probability array the function creates a AbstracGate that allows the load
-    of the probability in a Quantum State. The number of qbits of the gate will be log2(len(ProbabilityArray))
+    Function generator for the AbstractGate that allows the loading of a discretized Probability in a Quantum State.
     Inputs:
-    * ProbabilityArray: np.array. Discretized arrray with the probability to load
+        * ProbabilityArray: dict. Python dictionary whit a key named "array" whose corresponding item is a numpy array with the discretized
+    probability to load. If ProbabilityArray = Dictionary['array']. The number of qbits will be log2(len(ProbabilityArray)). 
     Outuput:
-    * P_gate: Abstract Gate. Gate for loading Input probability in a quantum state
+        * qrout: Quantum routine. Routine for loading the discrete probability.
     """
-    
-    #Number of Input qbits for the QWuantum Gate
-    #nqbits_ = np.log2(len(ProbabilityArray))
-    ##Probability array must have a dimension of 2^n.
-    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    #if Condition == False:
-    #    raise ValueError(
-    #        'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(
-    #            nqbits_
-    #        )
-    #    )
-    #nqbits_ = int(nqbits_)
-    nqbits_ = TestBins(ProbabilityArray, 'Probability')
-    def LoadProbability_generator(NumbeOfQbits):
-        
-        qrout = QRoutine()
-        qbits = qrout.new_wires(NumbeOfQbits)
-        nbins = 2**NumbeOfQbits        
-        
-        #Iteratively generation of the circuit
-        for i in range(0, NumbeOfQbits):
-            #Each step divides the bins in the step before by 2:
-            #if i=1 -> there are 2 divisions so the step splits each one in 2 so 4 new bins are generated
-            #if i=2 -> there are 4 divisions so the step split each one in 2 so 8 new bins are generated
-            
-            #Calculates Conditional Probability
-            ConditionalProbability = LeftConditionalProbability(i, ProbabilityArray)
-            #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
-            Thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))
 
-            if i == 0:
-                #The first qbit is a typical y Rotation
-                qrout.apply(RY(Thetas[0]), qbits[0])
-            else:
-                #The different rotations should be applied  over the i+1 qbit.
-                #Each rotation is controlled by all the posible states formed with i qbits
-                for j, theta in enumerate(Thetas):
-                    #Next lines do the following operation: |j> x Ry(2*\theta_{j})|0>
-                    gate = CRBS_gate(i, j, theta)
-                    qrout.apply(gate, qbits[:i+1])    
-        return qrout
-    
-    LoadP_Gate = AbstractGate("P_Gate", [int])   
-    LoadP_Gate.set_circuit_generator(LoadProbability_generator)
-    #Now We generated the complete Quantum Gate
-    P_gate = LoadP_Gate(nqbits_)
-    return P_gate   
+    ProbabilityArray = Dictionary['array']
+    n_qbits = TestBins(ProbabilityArray, 'Probability')
+
+    qrout = QRoutine()
+    qbits = qrout.new_wires(n_qbits)
+    nbins = len(ProbabilityArray)
+
+    for i in range(0, n_qbits):
+        ConditionalProbability = LeftConditionalProbability(i, ProbabilityArray)
+        Thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))
+
+        if i == 0:
+            #The first qbit is a typical y Rotation
+            qrout.apply(RY(Thetas[0]), qbits[0])
+        else:
+            #The different rotations should be applied  over the i+1 qbit.
+            #Each rotation is controlled by all the posible states formed with i qbits
+            for j, theta in enumerate(Thetas):
+                #Next lines do the following operation: |j> x Ry(2*\theta_{j})|0>
+                gate = CRBS_gate(i, j, theta)
+                qrout.apply(gate, qbits[:i+1])
+    return qrout
 
 
+LoadP_Gate = AbstractGate(
+    "P_Gate",
+    [dict],
+    circuit_generator = P_generator,
+    arity = lambda x:TestBins(x['array'], 'Function')
+)
 
-def CreateLoadFunctionGate(FunctionArray):
+#def CreatePG(ProbabilityArray):
+#    """
+#    Given a discretized probability array the function creates a AbstracGate that allows the load
+#    of the probability in a Quantum State. The number of qbits of the gate will be log2(len(ProbabilityArray))
+#    Inputs:
+#    * ProbabilityArray: np.array. Discretized arrray with the probability to load
+#    Outuput:
+#    * P_gate: Abstract Gate. Gate for loading Input probability in a quantum state
+#    """
+#    
+#    #Number of Input qbits for the QWuantum Gate
+#    #nqbits_ = np.log2(len(ProbabilityArray))
+#    ##Probability array must have a dimension of 2^n.
+#    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
+#    #if Condition == False:
+#    #    raise ValueError(
+#    #        'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(
+#    #            nqbits_
+#    #        )
+#    #    )
+#    #nqbits_ = int(nqbits_)
+#    nqbits_ = TestBins(ProbabilityArray, 'Probability')
+#    def LoadProbability_generator(NumbeOfQbits):
+#        
+#        qrout = QRoutine()
+#        qbits = qrout.new_wires(NumbeOfQbits)
+#        nbins = 2**NumbeOfQbits        
+#        
+#        #Iteratively generation of the circuit
+#        for i in range(0, NumbeOfQbits):
+#            #Each step divides the bins in the step before by 2:
+#            #if i=1 -> there are 2 divisions so the step splits each one in 2 so 4 new bins are generated
+#            #if i=2 -> there are 4 divisions so the step split each one in 2 so 8 new bins are generated
+#            
+#            #Calculates Conditional Probability
+#            ConditionalProbability = LeftConditionalProbability(i, ProbabilityArray)
+#            #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
+#            Thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))
+#
+#            if i == 0:
+#                #The first qbit is a typical y Rotation
+#                qrout.apply(RY(Thetas[0]), qbits[0])
+#            else:
+#                #The different rotations should be applied  over the i+1 qbit.
+#                #Each rotation is controlled by all the posible states formed with i qbits
+#                for j, theta in enumerate(Thetas):
+#                    #Next lines do the following operation: |j> x Ry(2*\theta_{j})|0>
+#                    gate = CRBS_gate(i, j, theta)
+#                    qrout.apply(gate, qbits[:i+1])    
+#        return qrout
+#    
+#    LoadP_Gate = AbstractGate("P_Gate", [int])   
+#    LoadP_Gate.set_circuit_generator(LoadProbability_generator)
+#    #Now We generated the complete Quantum Gate
+#    P_gate = LoadP_Gate(nqbits_)
+#    return P_gate   
+
+def R_generator(Dictionary):
     """
-    Given a discretized function array this function creates a AbstracGate that allows the load
-    of the functions in a Quantum State. The gate will have  log2(len(FunctionArray)) + 1 qbits. 
-    The first log2(len(FunctionArray)) qbits contain the state of the system.
-    Each posible measurement-state of the system applies a controlled rotation on the last qbit.
+    Function generator for creating an AbstractGate that allows the loading of the integral of a given discretized function array
+    into a Quantum State.
     Inputs:
-    * FunctionArray: np.array. Discretized arrray with the function to load
+        * Dictionary: dict. Python dictionary with a key named "array" whose corresponding item is a numpy array with the discrietized function. If the discretized function is FunctionArray = Dictionary['array'] the number of qbits will be log2(len(FunctionArray)) + 1 qbits.
     Outuput:
-    * R_gate: AbstractGate. Gate for loading the input function as a integral on the last qbit. 
+        * qrout: quantum routine. Routine for loading the input function as a integral on the last qbit. 
     """
-    
-    #Number of qbits to codify Input Function
-    #nqbits_ = np.log2(len(FunctionArray))
-    ##FunctionArray array must have a dimension of 2^n.
-    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    #if Condition == False:
-    #    raise ValueError(
-    #        'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(nqbits)
-    #    )
-    #nqbits_ = int(nqbits_)
+    FunctionArray = Dictionary['array']
     nqbits_ = TestBins(FunctionArray, 'Function')
-
     #Calculation of the rotation angles
     Thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
-    
-    def LoadFunction_generator(NumbeOfQbits):
-        qrout = QRoutine()
-        #The function will be load in the additional qbit
-        qbits = qrout.new_wires(NumbeOfQbits+1)
-        NumberOfStates = 2**NumbeOfQbits
-        #Loop over the States
-        for i in range(NumberOfStates):
-            #State |i>
-            
-            #Generation of a Controlled rotation of theta by state |i>
-            controlledR_gate = CRBS_gate(NumbeOfQbits, i, Thetas[i])    
-            qrout.apply(controlledR_gate, qbits)
-        return qrout
-    
-    LoadF_Gate = AbstractGate("R_Gate", [int])
-    LoadF_Gate.set_circuit_generator(LoadFunction_generator)
-    R_gate = LoadF_Gate(nqbits_)
-    return R_gate    
+
+    qrout = QRoutine()
+    qbits = qrout.new_wires(nqbits_+1)
+    NumberOfStates = 2**nqbits_
+    #Loop over the States
+    for i in range(NumberOfStates):
+        #State |i>
+        #Generation of a Controlled rotation of theta by state |i>
+        controlledR_gate = CRBS_gate(nqbits_, i, Thetas[i])
+        qrout.apply(controlledR_gate, qbits)
+    return qrout
+
+LoadR_Gate = AbstractGate(
+    "R_Gate",
+    [dict],
+    circuit_generator = R_generator,
+    arity = lambda x:TestBins(x['array'], 'Function')+1
+)
+
+
+#def CreateLoadFunctionGate(FunctionArray):
+#    """
+#    Given a discretized function array this function creates a AbstracGate that allows the load
+#    of the functions in a Quantum State. The gate will have  log2(len(FunctionArray)) + 1 qbits. 
+#    The first log2(len(FunctionArray)) qbits contain the state of the system.
+#    Each posible measurement-state of the system applies a controlled rotation on the last qbit.
+#    Inputs:
+#    * FunctionArray: np.array. Discretized arrray with the function to load
+#    Outuput:
+#    * R_gate: AbstractGate. Gate for loading the input function as a integral on the last qbit. 
+#    """
+#    
+#    #Number of qbits to codify Input Function
+#    #nqbits_ = np.log2(len(FunctionArray))
+#    ##FunctionArray array must have a dimension of 2^n.
+#    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
+#    #if Condition == False:
+#    #    raise ValueError(
+#    #        'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(nqbits)
+#    #    )
+#    #nqbits_ = int(nqbits_)
+#    nqbits_ = TestBins(FunctionArray, 'Function')
+#
+#    #Calculation of the rotation angles
+#    Thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
+#    
+#    def LoadFunction_generator(NumbeOfQbits):
+#        qrout = QRoutine()
+#        #The function will be load in the additional qbit
+#        qbits = qrout.new_wires(NumbeOfQbits+1)
+#        NumberOfStates = 2**NumbeOfQbits
+#        #Loop over the States
+#        for i in range(NumberOfStates):
+#            #State |i>
+#            
+#            #Generation of a Controlled rotation of theta by state |i>
+#            controlledR_gate = CRBS_gate(NumbeOfQbits, i, Thetas[i])    
+#            qrout.apply(controlledR_gate, qbits)
+#        return qrout
+#    
+#    LoadF_Gate = AbstractGate("R_Gate", [int])
+#    LoadF_Gate.set_circuit_generator(LoadFunction_generator)
+#    R_gate = LoadF_Gate(nqbits_)
+#    return R_gate    
 
 
 
