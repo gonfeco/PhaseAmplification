@@ -92,3 +92,44 @@ def LoadingData(p_X, f_X):
     #Load integral on the last qbit
     qprog.apply(R_gate, qbits)
     return qprog
+
+def Do(n_qbits=6, depth=0, function='DataLoading'):
+    def p(x):
+        return x*x
+    def f(x):
+        return np.sin(x)
+    #The number of bins 
+    m_bins = 2**n_qbits
+    LowerLimit = 0.0
+    UpperLimit = 1.0 
+    from AuxiliarFunctions import  get_histogram, PostProcessResults
+    X, p_X = get_histogram(p, LowerLimit, UpperLimit, m_bins)
+    f_X = f(X)
+    print('Creating Program')
+    qprog = LoadIntegralProgram(f_X)
+    print('Making Circuit')
+    circuit = qprog.to_circ()
+    job = circuit.to_job()
+    print(job)
+    print('########################################')
+    print('#########Connection to QLMaSS###########')
+    print('########################################')
+    from qat.qlmaas import QLMaaSConnection
+    connection = QLMaaSConnection()
+    LinAlg = connection.get_qpu("qat.qpus:LinAlg")
+    lineal_qpu = LinAlg()
+    result = lineal_qpu.submit(job)
+    R_results = PostProcessResults(result.join())
+    print(R_results)
+
+if __name__ == '__main__':
+    "Working Example"
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--nqbits', type=int, help='Number Of Qbits', default  = 6)
+    parser.add_argument('-depth', type=int, help='Depth of the Diagram', default = 0)
+    args = parser.parse_args()
+
+    Do(n_qbits=args.nqbits, depth=args.depth)
+
+
