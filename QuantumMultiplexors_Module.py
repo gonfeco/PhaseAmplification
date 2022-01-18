@@ -87,94 +87,176 @@ def multiplexor_RY_m(qprog, qbits, thetas, m, j):
     """
     multiplexor_RY_m_recurs(qprog, qbits, thetas, m, j)
     qprog.apply(CNOT, qbits[j-m], qbits[j])
-    
-def LoadProbability_Gate(ProbabilityArray):
+
+def P_generatorQM(Dictionary):
     """
-    Given a discretized probability array the function creates a AbstracGate that allows the load
-    of the probability in a Quantum State. The number of qbits of the gate will be log2(len(ProbabilityArray))
+    Function generator for the AbstractGate that allows the loading of a discretized Probability
+    in a Quantum State using Quantum Multiplexors
     Inputs:
-        * ProbabilityArray: np.array. Discretized arrray with the probability to load
+        * ProbabilityArray: dict. Python dictionary whit a key named "array" whose corresponding item is a numpy array with the discretized
+    probability to load. If ProbabilityArray = Dictionary['array']. The number of qbits will be log2(len(ProbabilityArray)). 
     Outuput:
-        * P_gate: Abstract Gate. Gate for loading Input probability in a quantum state
+        * qrout: Quantum routine. Routine for loading the discrete probability with Quantum Multiplexors.
     """
     
-    #Number of Input qbits for the QWuantum Gate
-    #nqbits_ = np.log2(len(ProbabilityArray))
-    ##Probability array must have a dimension of 2^n.
-    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
-    #assert Condition, 'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(nqbits_)
-    #
-    #nqbits = int(nqbits_)
-    #nbins = len(ProbabilityArray)
+    
+    ProbabilityArray = Dictionary['array']
     nqbits = TestBins(ProbabilityArray, text='Function')
-
     
-    P = AbstractGate("P", [int])
-    def P_generator(nqbits):
-        rout = QRoutine()
-        reg = rout.new_wires(nqbits)
-        # Now go iteratively trough each qubit computing the probabilities and adding the corresponding multiplexor
-        for m in range(nqbits):
-
-
-            #Calculates Conditional Probability
-            ConditionalProbability = LeftConditionalProbability(m, ProbabilityArray)
-
-            
-            #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
-            thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))
-            """
-            n_parts = 2**(m+1) #Compute the number of subzones which the current state is codifying
-            edges = np.array([a+(b-a)*(i)/n_parts for i in range(n_parts+1)]) #Compute the edges of that subzones
+    qrout = QRoutine()
+    reg = qrout.new_wires(nqbits)
+    # Now go iteratively trough each qubit computing the probabilities and adding the corresponding multiplexor
+    for m in range(nqbits):
+        #Calculates Conditional Probability
+        ConditionalProbability = LeftConditionalProbability(m, ProbabilityArray)        
+        #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
+        thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))   
         
-            # Compute the probabilities of each subzone by suming the probabilities of the original histogram.
-            # There is no need to compute integrals since the limiting accuracy is given by the original discretization.
-            # Moreover, this approach allows to handle non analytical probability distributions, measured directly from experiments
-            p_zones = np.array([np.sum(ProbabilityArray[np.logical_and(CentersArray>edges[i],CentersArray<edges[i+1])]) for i in range(n_parts)])
-            # Compute the probability of standing on the left part of each zone 
-            p_left = p_zones[[2*j for j in range(n_parts//2)]]
-            # Compute the probability of standing on each zone (left zone + right zone)
-            p_tot = p_left + p_zones[[2*j+1 for j in range(n_parts//2)]]
-            
-            # Compute the rotation angles
-            thetas = 2.0*np.arccos(np.sqrt(p_left/p_tot))
-            """
+        if m == 0:
+            # In the first iteration it is only needed a RY gate
+            qrout.apply(RY(thetas[0]), reg[0])
+        else:
+            # In the following iterations we have to apply multiplexors controlled by m qubits
+            # We call a function to construct the multiplexor, whose action is a block diagonal matrix of Ry gates with angles theta
+            multiplexor_RY_m(qrout, reg, thetas, m, m)        
+    return qrout  
 
-            if m == 0:
-                # In the first iteration it is only needed a RY gate
-                rout.apply(RY(thetas[0]), reg[0])
-            else:
-                # In the following iterations we have to apply multiplexors controlled by m qubits
-                # We call a function to construct the multiplexor, whose action is a block diagonal matrix of Ry gates with angles theta
-                multiplexor_RY_m(rout, reg, thetas, m, m)
-        return rout
-    P.set_circuit_generator(P_generator)
-    P_gate = P(nqbits)
-    return P_gate
+LoadP_Gate = AbstractGate(
+    "P_Gate",
+    [dict],
+    circuit_generator = P_generatorQM,
+    arity = lambda x:TestBins(x['array'], 'Function')
+)    
 
-def LoadIntegralFunction_Gate(FunctionArray):
+from qat.lang.AQASM import QRoutine, AbstractGate, RY
+from QuantumMultiplexors_Module import  multiplexor_RY_m
+def R_generatorQM(Dictionary):
     """
-    Load the values of the function f on the states in which the value of the auxiliary qubit is 1 once the probabilities are already loaded.
-    The number of the qbits of the gate will be log2(len(FunctionArray)) + 1. This is mandatory. The integral will be loaded in last qbit
-    
+    Function generator for creating an AbstractGate that allows the loading of the integral of a given
+    discretized function array into a Quantum State using Quantum Multiplexors
     Inputs:
-        * FunctionArray: np.array. Discretized arrray with the function for integral loading
-    Outputs:
-        * R_gate (ParamGate) : gate that loads the function into the amplitudes
+        * Dictionary: dict. Python dictionary with a key named "array" whose corresponding item is a numpy array with the discrietized function. If the discretized function is FunctionArray = Dictionary['array'] the number of qbits will be log2(len(FunctionArray)) + 1 qbits.
+    Outuput:
+        * qrout: quantum routine. Routine for loading the input function as a integral on the last qbit using Quantum Multiplexors
     """
+
+    FunctionArray = Dictionary['array']
+
     assert np.all(FunctionArray<=1.), 'The image of the function must be less than 1. Rescaling is required'
     assert np.all(FunctionArray>=0.), 'The image of the function must be greater than 0. Rescaling is required'
     assert isinstance(FunctionArray, np.ndarray), 'the output of the function p must be a numpy array'
 
     nqbits = TestBins(FunctionArray, text='Function')
+    #Calculation of the rotation angles
     thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
 
-    R = AbstractGate("R", [int])# + [float for theta in thetas])
-    def R_generator(nqbits):#, *thetas):
-        rout = QRoutine()
-        reg = rout.new_wires(nqbits+1)
-        multiplexor_RY_m(rout, reg, thetas, nqbits, nqbits)
-        return rout
-    R.set_circuit_generator(R_generator)
-    R_gate = R(nqbits)
-    return R_gate
+
+    qrout = QRoutine()
+    reg = qrout.new_wires(nqbits+1)
+    multiplexor_RY_m(qrout, reg, thetas, nqbits, nqbits)
+    return qrout
+
+LoadR_Gate = AbstractGate(
+    "R_Gate",
+    [dict],
+    circuit_generator = R_generatorQM,
+    arity = lambda x:TestBins(x['array'], 'Function')+1
+)
+    
+
+
+
+
+
+
+
+#def LoadProbability_Gate(ProbabilityArray):
+#    """
+#    Given a discretized probability array the function creates a AbstracGate that allows the load
+#    of the probability in a Quantum State. The number of qbits of the gate will be log2(len(ProbabilityArray))
+#    Inputs:
+#        * ProbabilityArray: np.array. Discretized arrray with the probability to load
+#    Outuput:
+#        * P_gate: Abstract Gate. Gate for loading Input probability in a quantum state
+#    """
+#    
+#    #Number of Input qbits for the QWuantum Gate
+#    #nqbits_ = np.log2(len(ProbabilityArray))
+#    ##Probability array must have a dimension of 2^n.
+#    #Condition = (nqbits_%2 ==0) or (nqbits_%2 ==1)
+#    #assert Condition, 'Length of the ProbabilityArray must be of dimension 2^n with n a int. In this case is: {}.'.format(nqbits_)
+#    #
+#    #nqbits = int(nqbits_)
+#    #nbins = len(ProbabilityArray)
+#    nqbits = TestBins(ProbabilityArray, text='Function')
+#
+#    
+#    P = AbstractGate("P", [int])
+#    def P_generator(nqbits):
+#        rout = QRoutine()
+#        reg = rout.new_wires(nqbits)
+#        # Now go iteratively trough each qubit computing the probabilities and adding the corresponding multiplexor
+#        for m in range(nqbits):
+#
+#
+#            #Calculates Conditional Probability
+#            ConditionalProbability = LeftConditionalProbability(m, ProbabilityArray)
+#
+#            
+#            #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
+#            thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))
+#            """
+#            n_parts = 2**(m+1) #Compute the number of subzones which the current state is codifying
+#            edges = np.array([a+(b-a)*(i)/n_parts for i in range(n_parts+1)]) #Compute the edges of that subzones
+#        
+#            # Compute the probabilities of each subzone by suming the probabilities of the original histogram.
+#            # There is no need to compute integrals since the limiting accuracy is given by the original discretization.
+#            # Moreover, this approach allows to handle non analytical probability distributions, measured directly from experiments
+#            p_zones = np.array([np.sum(ProbabilityArray[np.logical_and(CentersArray>edges[i],CentersArray<edges[i+1])]) for i in range(n_parts)])
+#            # Compute the probability of standing on the left part of each zone 
+#            p_left = p_zones[[2*j for j in range(n_parts//2)]]
+#            # Compute the probability of standing on each zone (left zone + right zone)
+#            p_tot = p_left + p_zones[[2*j+1 for j in range(n_parts//2)]]
+#            
+#            # Compute the rotation angles
+#            thetas = 2.0*np.arccos(np.sqrt(p_left/p_tot))
+#            """
+#
+#            if m == 0:
+#                # In the first iteration it is only needed a RY gate
+#                rout.apply(RY(thetas[0]), reg[0])
+#            else:
+#                # In the following iterations we have to apply multiplexors controlled by m qubits
+#                # We call a function to construct the multiplexor, whose action is a block diagonal matrix of Ry gates with angles theta
+#                multiplexor_RY_m(rout, reg, thetas, m, m)
+#        return rout
+#    P.set_circuit_generator(P_generator)
+#    P_gate = P(nqbits)
+#    return P_gate
+#
+#def LoadIntegralFunction_Gate(FunctionArray):
+#    """
+#    Load the values of the function f on the states in which the value of the auxiliary qubit is 1 once the probabilities are already loaded.
+#    The number of the qbits of the gate will be log2(len(FunctionArray)) + 1. This is mandatory. The integral will be loaded in last qbit
+#    
+#    Inputs:
+#        * FunctionArray: np.array. Discretized arrray with the function for integral loading
+#    Outputs:
+#        * R_gate (ParamGate) : gate that loads the function into the amplitudes
+#    """
+#    assert np.all(FunctionArray<=1.), 'The image of the function must be less than 1. Rescaling is required'
+#    assert np.all(FunctionArray>=0.), 'The image of the function must be greater than 0. Rescaling is required'
+#    assert isinstance(FunctionArray, np.ndarray), 'the output of the function p must be a numpy array'
+#
+#    nqbits = TestBins(FunctionArray, text='Function')
+#    thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
+#
+#    R = AbstractGate("R", [int])# + [float for theta in thetas])
+#    def R_generator(nqbits):#, *thetas):
+#        rout = QRoutine()
+#        reg = rout.new_wires(nqbits+1)
+#        multiplexor_RY_m(rout, reg, thetas, nqbits, nqbits)
+#        return rout
+#    R.set_circuit_generator(R_generator)
+#    R_gate = R(nqbits)
+#    return R_gate

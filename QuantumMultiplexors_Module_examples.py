@@ -10,50 +10,40 @@ This script contains several examples of use of the gates implemented in the Qua
 import numpy as np
 from AuxiliarFunctions import TestBins, PostProcessResults
 
+
+
 def LoadProbabilityProgram(p_X):
     """
     Creates a Quantum Program for loading an input numpy array with a probability distribution.
     Inputs:
-        * p_X: np.array. Probability distribution of size m. Mandatory: m=2^n where n is the number qbits of the quantum circuit. 
+        * p_X: np.array. Discretized probability to load.
     Outputs:
         * qprog: qlm program for loading input probability
     """
-    #Qbits of the Quantum circuit depends on Probability length
-    nqbits = TestBins(p_X, 'Probability')
     
+    from QuantumMultiplexors_Module import LoadP_Gate
+    P_gate = LoadP_Gate({'array':p_X})
     from qat.lang.AQASM import Program
     qprog = Program()
-    qbits = qprog.qalloc(nqbits)
-    #Creation of P_gate
-    from QuantumMultiplexors_Module import LoadProbability_Gate
-    P_gate = LoadProbability_Gate(p_X)
-    #Apply Abstract gate to the qbits
+    qbits = qprog.qalloc(P_gate.arity)
     qprog.apply(P_gate, qbits)
     return qprog
 
-
 def LoadIntegralProgram(f_X):
     """
-    Creates a Quantum Circuit for loading the integral of the input numpy array with a function evaluation 
+    Creates a Quantum Circuit for loading the integral of the input numpy array with a function evaluation
     Inputs:
-        * f_X: np.array. Function evaluation of size m. Mandatory: m=2^n where n is the number
-        qbits of the quantum circuit. 
+        * f_X: np.array. Discretized funtion to integrate
     Outputs:
         * program: qlm program for loading integral of the input function
     """
-    #Qbits of the Quantum circuit depends on Function array length
-    nqbits = TestBins(f_X, 'Function')
-    
+    from QuantumMultiplexors_Module import LoadR_Gate
+    R_gate = LoadR_Gate({'array':f_X})
     from qat.lang.AQASM import Program, H
     qprog = Program()
-    #The additional qbit is where the integral will be encoded
-    qbits = qprog.qalloc(nqbits+1)
-    for i in range(nqbits):
+    qbits = qprog.qalloc(R_gate.arity)
+    for i in range(len(qbits)-1):
         qprog.apply(H, qbits[i])
-    #Creation of P_gate
-    from QuantumMultiplexors_Module import LoadIntegralFunction_Gate
-    R_gate = LoadIntegralFunction_Gate(f_X)
-    #Apply Abstract gate to the qbits
     qprog.apply(R_gate, qbits)
     return qprog
 
@@ -68,22 +58,99 @@ def LoadingData(p_X, f_X):
         * qprog: quantum program for loading the expected value of f(x) for x following a p(x) distribution
     """
     #Testing input
-    nqbits_p = TestBins(p_X, 'Probability')
-    nqbits_f = TestBins(f_X, 'Function')
-    assert nqbits_p == nqbits_f, 'Arrays lenght are not equal!!'
-    nqbits = nqbits_p
     
-    #Creation of Gates
-    from QuantumMultiplexors_Module import LoadProbability_Gate
-    P_gate = LoadProbability_Gate(p_X)
-    from QuantumMultiplexors_Module import LoadIntegralFunction_Gate
-    R_gate = LoadIntegralFunction_Gate(f_X)
+    assert len(p_X) == len(f_X), 'Arrays lenght are not equal!!'
+    from QuantumMultiplexors_Module import LoadP_Gate, LoadR_Gate
+    P_gate = LoadP_Gate({'array':p_X})       
+    R_gate = LoadR_Gate({'array':f_X}) 
+
     
     from qat.lang.AQASM import Program
     qprog = Program()
-    qbits = qprog.qalloc(nqbits+1)
+    #The R gate have more qbits
+    qbits = qprog.qalloc(R_gate.arity)
     #Load Probability
     qprog.apply(P_gate, qbits[:-1])
     #Load integral on the last qbit
     qprog.apply(R_gate, qbits)
-    return qprog
+    return qprog    
+
+
+def Do(n_qbits=6, depth=0, function='DataLoading'):
+    def p(x):
+        return x*x
+    def f(x):
+        return np.sin(x)
+    #The number of bins 
+    m_bins = 2**n_qbits
+    LowerLimit = 0.0
+    UpperLimit = 1.0 
+    from AuxiliarFunctions import  get_histogram, PostProcessResults
+    X, p_X = get_histogram(p, LowerLimit, UpperLimit, m_bins)
+    f_X = f(X)
+    print('########################################')
+    print('#########Connection to QLMaSS###########')
+    print('########################################')
+    from qat.qlmaas import QLMaaSConnection
+    connection = QLMaaSConnection()
+    LinAlg = connection.get_qpu("qat.qpus:LinAlg")
+    lineal_qpu = LinAlg()
+
+    print('Creating Program')
+    if function == 'P':
+        print('\t Load Probability')
+        qprog = LoadProbabilityProgram(p_X)
+    elif function == 'I':
+        print('\t Load Integral')
+        qprog = LoadIntegralProgram(f_X)
+    else:
+        print('\t Load Complete Data')
+        qprog = LoadingData(p_X, f_X)
+
+    print('Making Circuit')
+    circuit = qprog.to_circ()
+    if function == 'P':
+        job = circuit.to_job()
+    else:
+        job = circuit.to_job(qubits=[n_qbits])
+    result = lineal_qpu.submit(job)
+    results = PostProcessResults(result.join())
+    print(results)
+
+    if function == 'P':
+        Condition = np.isclose(results['Probability'], p_X).all()
+        print('Probability load data: \n {}'.format(p_X))
+        print('Probability Measurements: \n {}'.format(results['Probability']))
+        print('This is correct? {}'.format(Condition))
+    elif function == 'I':
+        MeasurementIntegral = results['Probability'][1]*2**(n_qbits)
+        print('Integral load data: {}'.format(sum(f_X)))
+        print('Integral Measurement: {}'.format(MeasurementIntegral)) 
+        Condition = np.isclose(MeasurementIntegral, sum(f_X))
+        print('This is correct? {}'.format(Condition))
+    else:
+        MeasurementIntegral = results['Probability'][1]
+        print('Integral Measurement: {}'.format(MeasurementIntegral)) 
+        print('Expectation of f(x) for x~p(x): Integral p(x)f(x): {}'.format(sum(p_X*f_X)))
+        Condition = np.isclose(MeasurementIntegral, sum(p_X*f_X))
+        print('This is correct? {}'.format(Condition))
+         
+
+if __name__ == '__main__':
+    "Working Example"
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--nqbits', type=int, help='Number Of Qbits', default  = 6)
+    parser.add_argument('-depth', type=int, help='Depth of the Diagram', default = 0)
+    parser.add_argument('-t', '--type', default = None, help='Type of Loading: P: Load Probability. I: Load Integral. Otherwise: Load Complete Data')
+    args = parser.parse_args()
+    #print(args)
+
+    Do(n_qbits=args.nqbits, depth=args.depth,function=args.type)
+
+
+
+
+
+
+
