@@ -25,13 +25,15 @@ def LoadProbabilityProgram(p_X):
     """
     #Qbits of the Quantum circuit depends on Probability length
     nqbits = TestBins(p_X, 'Probability')
+    #Creation of the AbstractGate LoadP_Gate
+    from dataloading_module import LoadP_Gate
+    #The probability should be given as a python dictionary with key array
+    P_gate = LoadP_Gate({'array': p_X})
     
+    #Create the program
     from qat.lang.AQASM import Program
     qprog = Program()
     qbits = qprog.qalloc(nqbits)
-    #Creation of P_gate
-    from dataloading_module import CreatePG
-    P_gate = CreatePG(p_X)
     #Apply Abstract gate to the qbits
     qprog.apply(P_gate, qbits)
     return qprog
@@ -48,16 +50,19 @@ def LoadIntegralProgram(f_X):
     """
     #Qbits of the Quantum circuit depends on Function array length
     nqbits = TestBins(f_X, 'Function')
-    
+    #Creation of AbstractGate LoadR_Gate
+    from dataloading_module import LoadR_Gate 
+    #The function should be given as a python dictionary with key array
+    R_gate = LoadR_Gate({"array":f_X})
+
+    #Create the program
     from qat.lang.AQASM import Program, H
     qprog = Program()
     #The additional qbit is where the integral will be encoded
     qbits = qprog.qalloc(nqbits+1)
+    #Mixture state
     for i in range(nqbits):
         qprog.apply(H, qbits[i])
-    #Creation of P_gate
-    from dataloading_module import CreateLoadFunctionGate
-    R_gate = CreateLoadFunctionGate(f_X)
     #Apply Abstract gate to the qbits
     qprog.apply(R_gate, qbits)
     return qprog
@@ -79,10 +84,9 @@ def LoadingData(p_X, f_X):
     nqbits = nqbits_p
     
     #Creation of Gates
-    from dataloading_module import CreatePG
-    P_gate = CreatePG(p_X)    
-    from dataloading_module import CreateLoadFunctionGate
-    R_gate = CreateLoadFunctionGate(f_X)
+    from dataloading_module import LoadR_Gate, LoadP_Gate
+    P_gate = LoadP_Gate({"array":p_X})    
+    R_gate = LoadR_Gate({"array":f_X})
     
     from qat.lang.AQASM import Program
     qprog = Program()
