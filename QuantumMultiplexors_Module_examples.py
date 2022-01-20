@@ -8,7 +8,7 @@ This script contains several examples of use of the gates implemented in the Qua
 """
 
 import numpy as np
-from AuxiliarFunctions import TestBins, PostProcessResults
+from AuxiliarFunctions import TestBins, PostProcessResults,RunJob
 
 
 
@@ -22,7 +22,7 @@ def LoadProbabilityProgram(p_X):
     """
     
     from QuantumMultiplexors_Module import LoadP_Gate
-    P_gate = LoadP_Gate({'array':p_X})
+    P_gate = LoadP_Gate(p_X)
     from qat.lang.AQASM import Program
     qprog = Program()
     qbits = qprog.qalloc(P_gate.arity)
@@ -38,7 +38,7 @@ def LoadIntegralProgram(f_X):
         * program: qlm program for loading integral of the input function
     """
     from QuantumMultiplexors_Module import LoadR_Gate
-    R_gate = LoadR_Gate({'array':f_X})
+    R_gate = LoadR_Gate(f_X)
     from qat.lang.AQASM import Program, H
     qprog = Program()
     qbits = qprog.qalloc(R_gate.arity)
@@ -61,9 +61,8 @@ def LoadingData(p_X, f_X):
     
     assert len(p_X) == len(f_X), 'Arrays lenght are not equal!!'
     from QuantumMultiplexors_Module import LoadP_Gate, LoadR_Gate
-    P_gate = LoadP_Gate({'array':p_X})       
-    R_gate = LoadR_Gate({'array':f_X}) 
-
+    P_gate = LoadP_Gate(p_X)
+    R_gate = LoadR_Gate(f_X)
     
     from qat.lang.AQASM import Program
     qprog = Program()
@@ -91,10 +90,17 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
     print('########################################')
     print('#########Connection to QLMaSS###########')
     print('########################################')
-    from qat.qlmaas import QLMaaSConnection
-    connection = QLMaaSConnection()
-    LinAlg = connection.get_qpu("qat.qpus:LinAlg")
-    lineal_qpu = LinAlg()
+
+    #QPU connection
+    try:
+        from qat.qlmaas import QLMaaSConnection
+        connection = QLMaaSConnection('qlm')
+        LinAlg = connection.get_qpu("qat.qpus:LinAlg")
+        lineal_qpu = LinAlg()
+    except (ImportError, OSError) as e:
+        print('Problem: usin PyLinalg')
+        from qat.qpus import PyLinalg
+        lineal_qpu = PyLinalg()
 
     print('Creating Program')
     if function == 'P':
@@ -113,10 +119,9 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
         job = circuit.to_job()
     else:
         job = circuit.to_job(qubits=[n_qbits])
-    result = lineal_qpu.submit(job)
-    results = PostProcessResults(result.join())
+    result = RunJob(lineal_qpu.submit(job))
+    results = PostProcessResults(result)
     print(results)
-
     if function == 'P':
         Condition = np.isclose(results['Probability'], p_X).all()
         print('Probability load data: \n {}'.format(p_X))
@@ -134,7 +139,7 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
         print('Expectation of f(x) for x~p(x): Integral p(x)f(x): {}'.format(sum(p_X*f_X)))
         Condition = np.isclose(MeasurementIntegral, sum(p_X*f_X))
         print('This is correct? {}'.format(Condition))
-         
+
 
 if __name__ == '__main__':
     "Working Example"

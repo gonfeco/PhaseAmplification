@@ -29,8 +29,14 @@ def U_Phi0_generator(nqbits):
     
     return qrout#-Zeroes
 #Definition of the Abstract Gate
-U_Phi_0 = AbstractGate("U_Phi_0", [int])
-U_Phi_0.set_circuit_generator(U_Phi0_generator)
+#U_Phi_0 = AbstractGate("U_Phi_0", [int])
+#U_Phi_0.set_circuit_generator(U_Phi0_generator)
+U_Phi_0 = AbstractGate(
+    "U_Phi_0",
+    [int],
+    circuit_generator = U_Phi0_generator,
+    arity = lambda x: x
+)
 
 def D0_generator(nqbits):
     """
@@ -47,14 +53,20 @@ def D0_generator(nqbits):
     for i in range(nqbits):
         qrout.apply(X, qbits[i])
     #Controlled Z gate by n-1 first qbits
-    cZ = 'Z'+ '.ctrl()'*(len(qbits)-1)
-    qrout.apply(eval(cZ), qbits[:-1], qbits[-1])
+    c_n_Z = Z.ctrl(nqbits-1)
+    #cZ = 'Z'+ '.ctrl()'*(len(qbits)-1)
+    #qrout.apply(eval(cZ), qbits[:-1], qbits[-1])
+    qrout.apply(c_n_Z, qbits[:-1], qbits[-1])
     for i in range(nqbits):
         qrout.apply(X, qbits[i])
     
     return qrout#-Zeroes
-D_0 = AbstractGate("D_0", [int])
-D_0.set_circuit_generator(D0_generator)
+LoadD0_Gate = AbstractGate(
+    "D_0",
+    [int],
+    circuit_generator = D0_generator,
+    arity = lambda x: x
+)
 
 def U_Phi_Gate(nqbits, P_gate, R_gate):
     """

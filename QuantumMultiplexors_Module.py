@@ -88,80 +88,87 @@ def multiplexor_RY_m(qprog, qbits, thetas, m, j):
     multiplexor_RY_m_recurs(qprog, qbits, thetas, m, j)
     qprog.apply(CNOT, qbits[j-m], qbits[j])
 
-def P_generatorQM(Dictionary):
-    """
-    Function generator for the AbstractGate that allows the loading of a discretized Probability
-    in a Quantum State using Quantum Multiplexors
-    Inputs:
-        * ProbabilityArray: dict. Python dictionary whit a key named "array" whose corresponding item is a numpy array with the discretized
-    probability to load. If ProbabilityArray = Dictionary['array']. The number of qbits will be log2(len(ProbabilityArray)). 
-    Outuput:
-        * qrout: Quantum routine. Routine for loading the discrete probability with Quantum Multiplexors.
-    """
-    
-    
-    ProbabilityArray = Dictionary['array']
-    nqbits = TestBins(ProbabilityArray, text='Function')
-    
-    qrout = QRoutine()
-    reg = qrout.new_wires(nqbits)
-    # Now go iteratively trough each qubit computing the probabilities and adding the corresponding multiplexor
-    for m in range(nqbits):
-        #Calculates Conditional Probability
-        ConditionalProbability = LeftConditionalProbability(m, ProbabilityArray)        
-        #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
-        thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))   
-        
-        if m == 0:
-            # In the first iteration it is only needed a RY gate
-            qrout.apply(RY(thetas[0]), reg[0])
-        else:
-            # In the following iterations we have to apply multiplexors controlled by m qubits
-            # We call a function to construct the multiplexor, whose action is a block diagonal matrix of Ry gates with angles theta
-            multiplexor_RY_m(qrout, reg, thetas, m, m)        
-    return qrout  
+def LoadP_Gate(ProbabilityArray):
 
-LoadP_Gate = AbstractGate(
-    "P_Gate",
-    [dict],
-    circuit_generator = P_generatorQM,
-    arity = lambda x:TestBins(x['array'], 'Function')
-)    
+    def P_generatorQM():#Dictionary):
+        """
+        Function generator for the AbstractGate that allows the loading of a discretized Probability
+        in a Quantum State using Quantum Multiplexors
+        Inputs:
+            * ProbabilityArray: dict. Python dictionary whit a key named "array" whose corresponding item is a numpy array with the discretized
+        probability to load. If ProbabilityArray = Dictionary['array']. The number of qbits will be log2(len(ProbabilityArray)). 
+        Outuput:
+            * qrout: Quantum routine. Routine for loading the discrete probability with Quantum Multiplexors.
+        """
+        
+        
+        #ProbabilityArray = Dictionary['array']
+        nqbits = TestBins(ProbabilityArray, text='Function')
+        
+        qrout = QRoutine()
+        reg = qrout.new_wires(nqbits)
+        # Now go iteratively trough each qubit computing the probabilities and adding the corresponding multiplexor
+        for m in range(nqbits):
+            #Calculates Conditional Probability
+            ConditionalProbability = LeftConditionalProbability(m, ProbabilityArray)        
+            #Rotation angles: length: 2^(i-1)-1 and i the number of qbits of the step
+            thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))   
+            
+            if m == 0:
+                # In the first iteration it is only needed a RY gate
+                qrout.apply(RY(thetas[0]), reg[0])
+            else:
+                # In the following iterations we have to apply multiplexors controlled by m qubits
+                # We call a function to construct the multiplexor, whose action is a block diagonal matrix of Ry gates with angles theta
+                multiplexor_RY_m(qrout, reg, thetas, m, m)        
+        return qrout  
+    LoadP_Gate = AbstractGate(
+        "P_Gate",
+        [],
+        circuit_generator = P_generatorQM,
+        arity = TestBins(ProbabilityArray, 'Function')
+    )    
+    return LoadP_Gate()
+
 
 from qat.lang.AQASM import QRoutine, AbstractGate, RY
 from QuantumMultiplexors_Module import  multiplexor_RY_m
-def R_generatorQM(Dictionary):
-    """
-    Function generator for creating an AbstractGate that allows the loading of the integral of a given
-    discretized function array into a Quantum State using Quantum Multiplexors
-    Inputs:
-        * Dictionary: dict. Python dictionary with a key named "array" whose corresponding item is a numpy array with the discrietized function. If the discretized function is FunctionArray = Dictionary['array'] the number of qbits will be log2(len(FunctionArray)) + 1 qbits.
-    Outuput:
-        * qrout: quantum routine. Routine for loading the input function as a integral on the last qbit using Quantum Multiplexors
-    """
 
-    FunctionArray = Dictionary['array']
+def LoadR_Gate(FunctionArray):
 
-    assert np.all(FunctionArray<=1.), 'The image of the function must be less than 1. Rescaling is required'
-    assert np.all(FunctionArray>=0.), 'The image of the function must be greater than 0. Rescaling is required'
-    assert isinstance(FunctionArray, np.ndarray), 'the output of the function p must be a numpy array'
+    def R_generatorQM():
+        """
+        Function generator for creating an AbstractGate that allows the loading of the integral of a given
+        discretized function array into a Quantum State using Quantum Multiplexors
+        Inputs:
+            * Dictionary: dict. Python dictionary with a key named "array" whose corresponding item is a numpy array with the discrietized function. If the discretized function is FunctionArray = Dictionary['array'] the number of qbits will be log2(len(FunctionArray)) + 1 qbits.
+        Outuput:
+            * qrout: quantum routine. Routine for loading the input function as a integral on the last qbit using Quantum Multiplexors
+        """
+    
+         #FunctionArray = Dictionary['array']
+    
+        assert np.all(FunctionArray<=1.), 'The image of the function must be less than 1. Rescaling is required'
+        assert np.all(FunctionArray>=0.), 'The image of the function must be greater than 0. Rescaling is required'
+        assert isinstance(FunctionArray, np.ndarray), 'the output of the function p must be a numpy array'
+    
+        nqbits = TestBins(FunctionArray, text='Function')
+        #Calculation of the rotation angles
+        thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
+    
+    
+        qrout = QRoutine()
+        reg = qrout.new_wires(nqbits+1)
+        multiplexor_RY_m(qrout, reg, thetas, nqbits, nqbits)
+        return qrout
 
-    nqbits = TestBins(FunctionArray, text='Function')
-    #Calculation of the rotation angles
-    thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
-
-
-    qrout = QRoutine()
-    reg = qrout.new_wires(nqbits+1)
-    multiplexor_RY_m(qrout, reg, thetas, nqbits, nqbits)
-    return qrout
-
-LoadR_Gate = AbstractGate(
-    "R_Gate",
-    [dict],
-    circuit_generator = R_generatorQM,
-    arity = lambda x:TestBins(x['array'], 'Function')+1
-)
+    LoadR_Gate = AbstractGate(
+        "R_Gate",
+        [],
+        circuit_generator = R_generatorQM,
+        arity = TestBins(FunctionArray, 'Function')+1
+    )
+    return LoadR_Gate()
     
 
 

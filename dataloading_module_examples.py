@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 
-from AuxiliarFunctions import TestBins, PostProcessResults
+from AuxiliarFunctions import TestBins, PostProcessResults, RunJob
 
 
 def LoadProbabilityProgram(p_X):
@@ -28,7 +28,7 @@ def LoadProbabilityProgram(p_X):
     #Creation of the AbstractGate LoadP_Gate
     from dataloading_module import LoadP_Gate
     #The probability should be given as a python dictionary with key array
-    P_gate = LoadP_Gate({'array': p_X})
+    P_gate = LoadP_Gate(p_X)
     
     #Create the program
     from qat.lang.AQASM import Program
@@ -53,7 +53,7 @@ def LoadIntegralProgram(f_X):
     #Creation of AbstractGate LoadR_Gate
     from dataloading_module import LoadR_Gate 
     #The function should be given as a python dictionary with key array
-    R_gate = LoadR_Gate({"array":f_X})
+    R_gate = LoadR_Gate(f_X)
 
     #Create the program
     from qat.lang.AQASM import Program, H
@@ -85,8 +85,8 @@ def LoadingData(p_X, f_X):
     
     #Creation of Gates
     from dataloading_module import LoadR_Gate, LoadP_Gate
-    P_gate = LoadP_Gate({"array":p_X})    
-    R_gate = LoadR_Gate({"array":f_X})
+    P_gate = LoadP_Gate(p_X)    
+    R_gate = LoadR_Gate(f_X)
     
     from qat.lang.AQASM import Program
     qprog = Program()
@@ -109,22 +109,59 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
     from AuxiliarFunctions import  get_histogram, PostProcessResults
     X, p_X = get_histogram(p, LowerLimit, UpperLimit, m_bins)
     f_X = f(X)
-    print('Creating Program')
-    qprog = LoadIntegralProgram(f_X)
-    print('Making Circuit')
-    circuit = qprog.to_circ()
-    job = circuit.to_job()
-    print(job)
     print('########################################')
     print('#########Connection to QLMaSS###########')
     print('########################################')
-    from qat.qlmaas import QLMaaSConnection
-    connection = QLMaaSConnection()
-    LinAlg = connection.get_qpu("qat.qpus:LinAlg")
-    lineal_qpu = LinAlg()
-    result = lineal_qpu.submit(job)
-    R_results = PostProcessResults(result.join())
-    print(R_results)
+
+    #QPU connection
+    try:
+        from qat.qlmaas import QLMaaSConnection
+        connection = QLMaaSConnection('qlm')
+        LinAlg = connection.get_qpu("qat.qpus:LinAlg")
+        lineal_qpu = LinAlg()
+    except (ImportError, OSError) as e:
+        print('Problem: usin PyLinalg')
+        from qat.qpus import PyLinalg
+        lineal_qpu = PyLinalg()
+
+    print('Creating Program')
+    if function == 'P':
+        print('\t Load Probability')
+        qprog = LoadProbabilityProgram(p_X)
+    elif function == 'I':
+        print('\t Load Integral')
+        qprog = LoadIntegralProgram(f_X)
+    else:
+        print('\t Load Complete Data')
+        qprog = LoadingData(p_X, f_X)
+
+    print('Making Circuit')
+    circuit = qprog.to_circ()
+    if function == 'P':
+        job = circuit.to_job()
+    else:
+        job = circuit.to_job(qubits=[n_qbits])
+    result = RunJob(lineal_qpu.submit(job))
+    results = PostProcessResults(result)
+    print(results)
+    if function == 'P':
+        Condition = np.isclose(results['Probability'], p_X).all()
+        print('Probability load data: \n {}'.format(p_X))
+        print('Probability Measurements: \n {}'.format(results['Probability']))
+        print('This is correct? {}'.format(Condition))
+    elif function == 'I':
+        MeasurementIntegral = results['Probability'][1]*2**(n_qbits)
+        print('Integral load data: {}'.format(sum(f_X)))
+        print('Integral Measurement: {}'.format(MeasurementIntegral)) 
+        Condition = np.isclose(MeasurementIntegral, sum(f_X))
+        print('This is correct? {}'.format(Condition))
+    else:
+        MeasurementIntegral = results['Probability'][1]
+        print('Integral Measurement: {}'.format(MeasurementIntegral)) 
+        print('Expectation of f(x) for x~p(x): Integral p(x)f(x): {}'.format(sum(p_X*f_X)))
+        Condition = np.isclose(MeasurementIntegral, sum(p_X*f_X))
+        print('This is correct? {}'.format(Condition))
+
 
 if __name__ == '__main__':
     "Working Example"
@@ -132,8 +169,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--nqbits', type=int, help='Number Of Qbits', default  = 6)
     parser.add_argument('-depth', type=int, help='Depth of the Diagram', default = 0)
+    parser.add_argument('-t', '--type', default = None, help='Type of Loading: P: Load Probability. I: Load Integral. Otherwise: Load Complete Data')
     args = parser.parse_args()
+    #print(args)
 
-    Do(n_qbits=args.nqbits, depth=args.depth)
-
-
+    Do(n_qbits=args.nqbits, depth=args.depth,function=args.type)

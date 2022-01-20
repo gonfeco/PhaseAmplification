@@ -109,3 +109,11 @@ def PostProcessResults(Results):
     QA = pd.Series(QA, name='Amplitude') 
     pdf = pd.concat([States, QP, QA], axis=1)
     return pdf     
+
+def RunJob(result):
+    try:
+        return result.join()
+        #State = PostProcessResults(result.join())
+    except AttributeError:
+        return result
+        #State = PostProcessResults(result)
