@@ -61,14 +61,15 @@ def D0_generator(nqbits):
         qrout.apply(X, qbits[i])
     
     return qrout#-Zeroes
-LoadD0_Gate = AbstractGate(
+D0_Gate = AbstractGate(
     "D_0",
     [int],
     circuit_generator = D0_generator,
     arity = lambda x: x
 )
 
-def U_Phi_Gate(nqbits, P_gate, R_gate):
+
+def U_Phi_Gate(P_gate, R_gate):
     """
     Create gate U_Phi mandatory for Phase Amplification Algorithm.
     The operator to implement is: I-2|Phi_{n-1}><Phi_{n-1}|. 
@@ -83,24 +84,59 @@ def U_Phi_Gate(nqbits, P_gate, R_gate):
         * U_Phi: guantum gate that implements U_Phi gate
     """
     
-
-    def U_Phi_generator(nqbits):
+    
+    from qat.lang.AQASM import AbstractGate, QRoutine
+    #The arity of the R_gate fix the number of qbits for the routine
+    nqbits = R_gate.arity
+    def U_Phi_generator():
         """
         Circuit generator for the U_Phi_Gate.
         Operation to be implemented: R*P*D_0*P^{+}R^{+}
-        Inputs:
-            * nqbits: int. Number of Qbits for the circuit
         Outputs:
             * qrout: quantum routine with the circuit implementation
         """
+        
         qrout = QRoutine()
         qbits = qrout.new_wires(nqbits)
         qrout.apply(R_gate.dag(), qbits)
         qrout.apply(P_gate.dag(), qbits[:-1])
-        qrout.apply(D_0(nqbits), qbits)
+        D_0 = D0_Gate(nqbits)
+        qrout.apply(D_0, qbits)
         qrout.apply(P_gate, qbits[:-1])
         qrout.apply(R_gate, qbits)
         return qrout
-    U_Phi = AbstractGate("UPhi", [int])
-    U_Phi.set_circuit_generator(U_Phi_generator)
-    return U_Phi(nqbits)
+    U_Phi = AbstractGate(
+        "UPhi", 
+        [],
+        circuit_generator = U_Phi_generator,
+        arity = nqbits
+    )
+    return U_Phi()    
+
+
+def Q_Gate(P_gate, R_gate):
+    from qat.lang.AQASM import AbstractGate, QRoutine
+    nqbits = R_gate.arity
+    def Q_generator():
+
+        qrout = QRoutine()
+        qbits = qrout.new_wires(nqbits)
+        qrout.apply(U_Phi_0(nqbits), qbits)
+        UPhi =U_Phi_Gate(P_gate, R_gate) 
+        qrout.apply(UPhi, qbits)
+        return qrout
+    Q = AbstractGate(
+        "UPhi", 
+        [],
+        circuit_generator = Q_generator,
+        arity = nqbits
+    )
+    return Q()    
+
+
+
+
+
+
+
+

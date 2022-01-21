@@ -19,6 +19,7 @@ def LoadProbabilityProgram(p_X):
         * p_X: np.array. Discretized probability to load.
     Outputs:
         * qprog: qlm program for loading input probability
+        * P_gate: AbstractGate. Gate for the operator for loading probability P
     """
     
     from QuantumMultiplexors_Module import LoadP_Gate
@@ -27,7 +28,7 @@ def LoadProbabilityProgram(p_X):
     qprog = Program()
     qbits = qprog.qalloc(P_gate.arity)
     qprog.apply(P_gate, qbits)
-    return qprog
+    return qprog, P_gate
 
 def LoadIntegralProgram(f_X):
     """
@@ -36,6 +37,7 @@ def LoadIntegralProgram(f_X):
         * f_X: np.array. Discretized funtion to integrate
     Outputs:
         * program: qlm program for loading integral of the input function
+        * R_gate: AbstractGate. Gate for the operator for loading integra of the function R.
     """
     from QuantumMultiplexors_Module import LoadR_Gate
     R_gate = LoadR_Gate(f_X)
@@ -45,7 +47,7 @@ def LoadIntegralProgram(f_X):
     for i in range(len(qbits)-1):
         qprog.apply(H, qbits[i])
     qprog.apply(R_gate, qbits)
-    return qprog
+    return qprog, R_gate
 
 def LoadingData(p_X, f_X):
     """
@@ -56,6 +58,8 @@ def LoadingData(p_X, f_X):
         * f_X: np.array. Array of the discretized funcion
     Outpus:
         * qprog: quantum program for loading the expected value of f(x) for x following a p(x) distribution
+        * P_gate: AbstractGate. Gate for the operator for loading probability P
+        * R_gate: AbstractGate. Gate for the operator for loading integra of the function R.
     """
     #Testing input
     
@@ -72,7 +76,7 @@ def LoadingData(p_X, f_X):
     qprog.apply(P_gate, qbits[:-1])
     #Load integral on the last qbit
     qprog.apply(R_gate, qbits)
-    return qprog    
+    return qprog, P_gate, R_gate 
 
 
 def Do(n_qbits=6, depth=0, function='DataLoading'):
@@ -105,13 +109,13 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
     print('Creating Program')
     if function == 'P':
         print('\t Load Probability')
-        qprog = LoadProbabilityProgram(p_X)
-    elif function == 'I':
+        qprog,_ = LoadProbabilityProgram(p_X)
+    elif function == 'R':
         print('\t Load Integral')
-        qprog = LoadIntegralProgram(f_X)
+        qprog,_ = LoadIntegralProgram(f_X)
     else:
         print('\t Load Complete Data')
-        qprog = LoadingData(p_X, f_X)
+        qprog,_,_ = LoadingData(p_X, f_X)
 
     print('Making Circuit')
     circuit = qprog.to_circ()
@@ -127,7 +131,7 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
         print('Probability load data: \n {}'.format(p_X))
         print('Probability Measurements: \n {}'.format(results['Probability']))
         print('This is correct? {}'.format(Condition))
-    elif function == 'I':
+    elif function == 'R':
         MeasurementIntegral = results['Probability'][1]*2**(n_qbits)
         print('Integral load data: {}'.format(sum(f_X)))
         print('Integral Measurement: {}'.format(MeasurementIntegral)) 
@@ -147,7 +151,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--nqbits', type=int, help='Number Of Qbits', default  = 6)
     parser.add_argument('-depth', type=int, help='Depth of the Diagram', default = 0)
-    parser.add_argument('-t', '--type', default = None, help='Type of Loading: P: Load Probability. I: Load Integral. Otherwise: Load Complete Data')
+    parser.add_argument('-t', '--type', default = None, help='Type of Loading: P: Load Probability. R: Load Integral. Otherwise: Load Complete Data')
     args = parser.parse_args()
     #print(args)
 

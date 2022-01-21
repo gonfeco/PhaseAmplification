@@ -19,7 +19,7 @@ from AuxiliarFunctions import TestBins, LeftConditionalProbability, get_histogra
 
 
 #CRBS = ControlledRotationByState
-def CRBS_generator(N, ControlState, Theta):
+def CRBS_generatorOLD(N, ControlState, Theta):
     """
     This functions codify a input ControlState using N qbits and
     apply a controlled Rotation of an input angle Theta by the ControlState
@@ -60,13 +60,60 @@ def CRBS_generator(N, ControlState, Theta):
     return qrout    
 
 #Using generator function an abstract gate is created
-CRBS_gate = AbstractGate(
+CRBS_gateOLD = AbstractGate(
     "CRBS_Gate", 
     [int, int, float],
-    circuit_generator = CRBS_generator,
+    circuit_generator = CRBS_generatorOLD,
     arity = lambda x,y,z: x+1
-
 )   
+
+
+def CRBS_generator(nqbits, ControlState, theta):
+    """ 
+    This functions condify a input ControlState using N qbits and
+    apply a controlled Rotation of an input angle theta by the ControlState
+    on one aditional qbit.
+    Inputs:
+        * nqbits: int. Number of qbits needed for codify the ControlState. 
+        * ControlState: int. State for controlling the of the controlled Rotation.
+        * theta: float. Rotation angle    
+    Outpus:
+        * qrout: quantum routine. Routine for creating a controlled multistate Rotation.
+    """
+    from qat.lang.AQASM import QRoutine, RY
+    qrout = QRoutine()
+    #Use of quantum integer types for control qbits
+    from qat.lang.AQASM.qint import QInt
+    qcontrol = qrout.new_wires(nqbits, QInt)
+    #Qbit where rotation should be applied
+    qtarget = qrout.new_wires(1)
+    #The control qbits should be equal to the input ControlState integer
+    #in order to apply the Rotation to the target qbit
+    expresion = (qcontrol==ControlState)
+    #An auxiliar qbit is created for storing the result of the expresion.
+    #This qbit will be in state |0> unless the control qbits equals the
+    #Integer ControlState whete state will change to |1>
+    with qrout.compute():
+        qAux = expresion.evaluate()
+    #The controlled Rotation on the target qbit will be controlled 
+    #by the auxiliar qbit with contains the result of the evaluation expresion
+    qrout.apply(RY(theta).ctrl(), qAux, qtarget)
+    #Finally we need to undo the evaluation of the expresion in order to
+    #get the original control qbits
+    qrout.uncompute()
+    #qrout.free_ancillae(qAux)
+    return qrout
+
+from qat.lang.AQASM import AbstractGate
+#Using generator function an abstract gate is created
+CRBS_gate = AbstractGate(
+    "CRBS", 
+    [int, int, float], 
+    circuit_generator = CRBS_generator,
+    arity = lambda x, y, z: x+1
+)
+
+
 
 def LoadP_Gate(ProbabilityArray):
     """
