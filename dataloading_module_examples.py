@@ -35,8 +35,6 @@ def LoadProbabilityProgram(p_X):
     Qprog: QLM Program.
         Quantume Program for loading input probability
     """
-    #Qbits of the Quantum circuit depends on Probability length
-    #nqbits = TestBins(p_X, 'Probability')
     #Creation of the AbstractGate LoadP_Gate
     from dataloading_module import LoadP_Gate
     #The probability should be given as a python dictionary with key array
@@ -45,6 +43,7 @@ def LoadProbabilityProgram(p_X):
     #Create the program
     from qat.lang.AQASM import Program
     Qprog = Program()
+    #Number of Qbits is defined by the arity of the Gate
     qbits = Qprog.qalloc(P_gate.arity)
     #Apply Abstract gate to the qbits
     Qprog.apply(P_gate, qbits)
@@ -73,18 +72,19 @@ def LoadIntegralProgram(f_X):
     #nqbits = TestBins(f_X, 'Function')
     #Creation of AbstractGate LoadR_Gate
     from dataloading_module import LoadR_Gate 
-    #The function should be given as a python dictionary with key array
     R_gate = LoadR_Gate(f_X)
 
     #Create the program
     from qat.lang.AQASM import Program, H
     Qprog = Program()
-    #The additional qbit is where the integral will be encoded
-    qbits = Qprog.qalloc(R_gate.arity)
-    #Mixture state
-    for i in range(nqbits):
+    #The number of qbits is defined by the arity of the gate
+    nqbits = R_gate.arity
+    qbits = Qprog.qalloc(nqbits)
+    #Mixture of the controlled states (that are the first nqbits-1 qbits)
+    for i in range(nqbits-1):
         Qprog.apply(H, qbits[i])
     #Apply Abstract gate to the qbits
+    #Last qbit is where the integral of the function will be loaded
     Qprog.apply(R_gate, qbits)
     return Qprog
 
