@@ -68,8 +68,6 @@ def LoadIntegralProgram(f_X):
     Qprog: QLM Program
         Quantum Program for loading integral of the input function
     """
-    #Qbits of the Quantum circuit depends on Function array length
-    #nqbits = TestBins(f_X, 'Function')
     #Creation of AbstractGate LoadR_Gate
     from dataloading_module import LoadR_Gate 
     R_gate = LoadR_Gate(f_X)
