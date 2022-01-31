@@ -16,7 +16,7 @@ MyQLM version:
 """
 
 import numpy as np
-from qat.lang.AQASM import QRoutine, AbstractGate, RY, CNOT
+from qat.lang.AQASM import QRoutine, AbstractGate, RY, CNOT, build_gate
 from AuxiliarFunctions import TestBins, LeftConditionalProbability
 from AuxiliarFunctions import get_histogram
 
@@ -141,7 +141,10 @@ def LoadP_Gate(ProbabilityArray):
         Quantum Multiplexors
     """
 
-    def P_generatorQM():
+    nqbits = TestBins(ProbabilityArray, text='Function')
+
+    @build_gate("P_Gate", [], arity= nqbits)
+    def P_GateQM():
         """
         Function generator for the AbstractGate that allows the loading
         of a discretized Probability in a Quantum State using 
@@ -156,7 +159,6 @@ def LoadP_Gate(ProbabilityArray):
         """
         
         #ProbabilityArray = Dictionary['array']
-        nqbits = TestBins(ProbabilityArray, text='Function')
         
         qrout = QRoutine()
         reg = qrout.new_wires(nqbits)
@@ -180,13 +182,13 @@ def LoadP_Gate(ProbabilityArray):
                 # with angles theta
                 multiplexor_RY_m(qrout, reg, thetas, m, m)        
         return qrout  
-    P_Gate = AbstractGate(
-        "P_Gate",
-        [],
-        circuit_generator = P_generatorQM,
-        arity = TestBins(ProbabilityArray, 'Function')
-    )    
-    return P_Gate()
+    #P_Gate = AbstractGate(
+    #    "P_Gate",
+    #    [],
+    #    circuit_generator = P_generatorQM,
+    #    arity = TestBins(ProbabilityArray, 'Function')
+    #)    
+    return P_GateQM()
 
 
 from qat.lang.AQASM import QRoutine, AbstractGate, RY
@@ -217,8 +219,20 @@ def LoadR_Gate(FunctionArray):
         AbstractGate customized for loading the integral of the function
         using Quantum Multiplexors
     """
+    TextStr = 'The image of the function must be less than 1.'\
+    'Rescaling is required'
+    assert np.all(FunctionArray<=1.), TextStr
+    TextStr = 'The image of the function must be greater than 0.'\
+    'Rescaling is required'
+    assert np.all(FunctionArray>=0.), TextStr 
+    TextStr = 'the output of the function p must be a numpy array'
+    assert isinstance(FunctionArray, np.ndarray), TextStr 
+    nqbits = TestBins(FunctionArray, text='Function')
+    #Calculation of the rotation angles
+    thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
 
-    def R_generatorQM():
+    @build_gate("R_Gate", [], arity = nqbits+1)
+    def R_GateQM():
         """
         Function generator for creating an AbstractGate that allows 
         the loading of the integral of a given discretized function 
@@ -232,28 +246,17 @@ def LoadR_Gate(FunctionArray):
             on the last qbit. 
         """
     
-        TextStr = 'The image of the function must be less than 1.'\
-        'Rescaling is required'
-        assert np.all(FunctionArray<=1.), TextStr
-        TextStr = 'The image of the function must be greater than 0.'\
-        'Rescaling is required'
-        assert np.all(FunctionArray>=0.), TextStr 
-        TextStr = 'the output of the function p must be a numpy array'
-        assert isinstance(FunctionArray, np.ndarray), TextStr 
 
-        nqbits = TestBins(FunctionArray, text='Function')
-        #Calculation of the rotation angles
-        thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
         qrout = QRoutine()
         reg = qrout.new_wires(nqbits+1)
         multiplexor_RY_m(qrout, reg, thetas, nqbits, nqbits)
         return qrout
 
-    R_Gate = AbstractGate(
-        "R_Gate",
-        [],
-        circuit_generator = R_generatorQM,
-        arity = TestBins(FunctionArray, 'Function')+1
-    )
-    return R_Gate()
+    #R_Gate = AbstractGate(
+    #    "R_Gate",
+    #    [],
+    #    circuit_generator = R_generatorQM,
+    #    arity = TestBins(FunctionArray, 'Function')+1
+    #)
+    return R_GateQM()
     

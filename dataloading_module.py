@@ -19,12 +19,13 @@ Version: Initial version
 """
 
 import numpy as np
-from qat.lang.AQASM import QRoutine, AbstractGate, X, RY 
+from qat.lang.AQASM import QRoutine, AbstractGate, X, RY, build_gate 
 from AuxiliarFunctions import TestBins, LeftConditionalProbability
 from AuxiliarFunctions import get_histogram
 
 
-def CRBS_generator(Nqbits, ControlState, Theta):
+@build_gate("CRBS", [int, int, float], arity = lambda x, y, z: x+1)
+def CRBS_Gate(Nqbits, ControlState, Theta):
     """ 
     This functions codify a input ControlState using Nqbits qbits and
     apply a controlled Y-Rotation by ControlState of Theta on one 
@@ -70,14 +71,14 @@ def CRBS_generator(Nqbits, ControlState, Theta):
     Qrout.uncompute()
     return Qrout
 
-from qat.lang.AQASM import AbstractGate
-#Using generator function an abstract gate is created
-CRBS_gate = AbstractGate(
-    "CRBS", 
-    [int, int, float], 
-    circuit_generator = CRBS_generator,
-    arity = lambda x, y, z: x+1
-)
+#from qat.lang.AQASM import AbstractGate
+##Using generator function an abstract gate is created
+#CRBS_gate = AbstractGate(
+#    "CRBS", 
+#    [int, int, float], 
+#    circuit_generator = CRBS_generator,
+#    arity = lambda x, y, z: x+1
+#)
 
 
 
@@ -105,7 +106,11 @@ def LoadP_Gate(ProbabilityArray):
     P_Gate :  AbstractGate
         Customized Abstract Gate for Loading Probability array 
     """
-    def P_generator():
+
+    n_qbits = TestBins(ProbabilityArray, 'Probability')
+
+    @build_gate("P_Gate", [], arity = n_qbits)
+    def P_Gate():
         """
         Function generator for the AbstractGate that allows the loading 
         of a discretized Probability in a Quantum State.
@@ -116,9 +121,6 @@ def LoadP_Gate(ProbabilityArray):
         Qrout : Quantum Routine
             Quantum Routine for loading Probability
         """
-    
-        #ProbabilityArray = Dictionary['array']
-        n_qbits = TestBins(ProbabilityArray, 'Probability')
     
         Qrout = QRoutine()
         qbits = Qrout.new_wires(n_qbits)
@@ -139,15 +141,15 @@ def LoadP_Gate(ProbabilityArray):
                 for j, theta in enumerate(Thetas):
                     #Next lines do the following operation: 
                     #|j> x Ry(2*\theta_{j})|0>
-                    gate = CRBS_gate(i, j, theta)
+                    gate = CRBS_Gate(i, j, theta)
                     Qrout.apply(gate, qbits[:i+1])
         return Qrout
-    P_Gate = AbstractGate(
-        "P_Gate",
-        [],
-        circuit_generator = P_generator,
-        arity = TestBins(ProbabilityArray, 'Probability')
-    )
+    #P_Gate = AbstractGate(
+    #    "P_Gate",
+    #    [],
+    #    circuit_generator = P_generator,
+    #    arity = TestBins(ProbabilityArray, 'Probability')
+    #)
     return P_Gate()
 
 def LoadR_Gate(FunctionArray):
@@ -174,7 +176,13 @@ def LoadR_Gate(FunctionArray):
     R_Gate: AbstractGate
         AbstractGate customized for loadin the integral of the function.
     """
-    def R_generator():
+
+    nqbits_ = TestBins(FunctionArray, 'Function')
+    #Calculation of the rotation angles
+    Thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
+
+    @build_gate("R_Gate", [], arity = nqbits_+1)
+    def R_Gate():
         """
         Function generator for creating an AbstractGate that allows 
         the loading of the integral of a given discretized function 
@@ -187,10 +195,6 @@ def LoadR_Gate(FunctionArray):
             Routine for loading the input function as a integral
             on the last qbit. 
         """
-        #FunctionArray = Dictionary['array']
-        nqbits_ = TestBins(FunctionArray, 'Function')
-        #Calculation of the rotation angles
-        Thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
     
         Qrout = QRoutine()
         qbits = Qrout.new_wires(nqbits_+1)
@@ -199,15 +203,14 @@ def LoadR_Gate(FunctionArray):
         for i in range(NumberOfStates):
             #State |i>
             #Generation of a Controlled rotation of theta by state |i>
-            controlledR_gate = CRBS_gate(nqbits_, i, Thetas[i])
-            Qrout.apply(controlledR_gate, qbits)
+            Qrout.apply(CRBS_Gate(nqbits_, i, Thetas[i]), qbits)
         return Qrout
 
-    R_Gate = AbstractGate(
-        "R_Gate",
-        [],
-        circuit_generator = R_generator,
-        arity = TestBins(FunctionArray, 'Function')+1
-    )
+    #R_Gate = AbstractGate(
+    #    "R_Gate",
+    #    [],
+    #    circuit_generator = R_generator,
+    #    arity = TestBins(FunctionArray, 'Function')+1
+    #)
     return R_Gate()
 
