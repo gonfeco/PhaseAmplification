@@ -1,10 +1,12 @@
 """
+This script contains several examples of use of the gates in the 
+dataloading_module
+
 Author: Gonzalo Ferro Costas
 Version: Initial version
 
 MyQLM version:
 
-This script contains several examples of use of the gates in the dataloading_module
 """
 
 import numpy as np
@@ -16,12 +18,22 @@ from AuxiliarFunctions import TestBins, PostProcessResults, RunJob
 
 def LoadProbabilityProgram(p_X):
     """
-    Creates a Quantum Program for loading an input numpy array with a probability distribution.
-    Inputs:
-        * p_X: np.array. Probability distribution of size m. Mandatory: m=2^n where n is the number
-        qbits of the quantum circuit. 
-    Outputs:
-        * qprog: qlm program for loading input probability
+    Creates a Quantum Program for loading an input numpy array with a 
+    probability distribution.
+
+    Parameters
+    ----------
+
+    p_X : numpy array
+        Probability distribution of size m. Mandatory: m=2^n where n 
+        is the number qbits of the quantum circuit. 
+
+
+    Returns
+    ----------
+    
+    Qprog: QLM Program.
+        Quantume Program for loading input probability
     """
     #Qbits of the Quantum circuit depends on Probability length
     nqbits = TestBins(p_X, 'Probability')
@@ -32,21 +44,30 @@ def LoadProbabilityProgram(p_X):
     
     #Create the program
     from qat.lang.AQASM import Program
-    qprog = Program()
-    qbits = qprog.qalloc(nqbits)
+    Qprog = Program()
+    qbits = Qprog.qalloc(nqbits)
     #Apply Abstract gate to the qbits
-    qprog.apply(P_gate, qbits)
-    return qprog
+    Qprog.apply(P_gate, qbits)
+    return Qprog
 
 
 def LoadIntegralProgram(f_X):
     """
-    Creates a Quantum Circuit for loading the integral of the input numpy array with a function evaluation 
-    Inputs:
-        * f_X: np.array. Function evaluation of size m. Mandatory: m=2^n where n is the number
-        qbits of the quantum circuit. 
-    Outputs:
-        * program: qlm program for loading integral of the input function
+    Creates a Quantum Pogram for loading the integral of an input 
+    function given as a numpy array
+
+    Parameters
+    ----------
+
+    f_X : numpy array
+        Function evaluation of size m. Mandatory: m=2^n where n is the
+        number qbits of the quantum circuit. 
+
+    Returns
+    ----------
+    
+    Qprog: QLM Program
+        Quantum Program for loading integral of the input function
     """
     #Qbits of the Quantum circuit depends on Function array length
     nqbits = TestBins(f_X, 'Function')
@@ -57,25 +78,37 @@ def LoadIntegralProgram(f_X):
 
     #Create the program
     from qat.lang.AQASM import Program, H
-    qprog = Program()
+    Qprog = Program()
     #The additional qbit is where the integral will be encoded
-    qbits = qprog.qalloc(nqbits+1)
+    qbits = Qprog.qalloc(nqbits+1)
     #Mixture state
     for i in range(nqbits):
-        qprog.apply(H, qbits[i])
+        Qprog.apply(H, qbits[i])
     #Apply Abstract gate to the qbits
-    qprog.apply(R_gate, qbits)
-    return qprog
+    Qprog.apply(R_gate, qbits)
+    return Qprog
 
-def LoadingData(p_X, f_X):
+def ExpectationLoadingData(p_X, f_X):
     """
-    Load all the mandatory data to load in a quantum program the expected value 
-    of a function f(x) over a x following a probability distribution p(x).
-    Inputs:
-        * p_X: np.array. Array of the discretized probability density
-        * f_X: np.array. Array of the discretized funcion
-    Outpus:
-        * qprog: quantum program for loading the expected value of f(x) for x following a p(x) distribution
+    Creates a Quantum Program for loading mandatory data in order to
+    load the expected value of a function f(x) over a x following a
+    probability distribution p(x).
+
+    Parameters
+    ----------
+
+    p_X : numpy array
+        Probability distribution of size m. Mandatory: m=2^n where n 
+        is the number qbits of the quantum circuit. 
+    f_X : numpy array
+        Function evaluation of size m. Mandatory: m=2^n where n is the
+        number qbits of the quantum circuit. 
+
+    Returns
+    ----------
+    
+    Qprog: QLM Program.
+        Quantum Program for loading input probability
     """
     #Testing input
     nqbits_p = TestBins(p_X, 'Probability')
@@ -89,15 +122,36 @@ def LoadingData(p_X, f_X):
     R_gate = LoadR_Gate(f_X)
     
     from qat.lang.AQASM import Program
-    qprog = Program()
-    qbits = qprog.qalloc(nqbits+1)
+    Qprog = Program()
+    qbits = Qprog.qalloc(nqbits+1)
     #Load Probability
-    qprog.apply(P_gate, qbits[:-1])
+    Qprog.apply(P_gate, qbits[:-1])
     #Load integral on the last qbit
-    qprog.apply(R_gate, qbits)
-    return qprog
+    Qprog.apply(R_gate, qbits)
+    return Qprog
 
 def Do(n_qbits=6, depth=0, function='DataLoading'):
+    """
+    Function for testing purpouses. This function is used when the 
+    script is executed from command line using arguments. It executes
+    the three implemented fucntions of this script:
+        * LoadProbabilityProgram
+        * LoadIntegralProgram
+        * ExpectationLoadingData
+
+    Parameters
+    ----------
+    n_qbits : int.
+        Number of Qbits for the quantum circuit. 
+    depth : int
+        Depth for visualizar the Quantum Circuit
+    function : str
+        String that indicates which of the before functions should be 
+        used: 
+            'P' : LoadProbabilityProgram 
+            'I' : LoadIntegralProgram
+            Otherwise : ExpectationLoadingData
+    """
     def p(x):
         return x*x
     def f(x):
@@ -127,16 +181,19 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
     print('Creating Program')
     if function == 'P':
         print('\t Load Probability')
-        qprog = LoadProbabilityProgram(p_X)
+        Qprog = LoadProbabilityProgram(p_X)
     elif function == 'I':
         print('\t Load Integral')
-        qprog = LoadIntegralProgram(f_X)
+        Qprog = LoadIntegralProgram(f_X)
     else:
-        print('\t Load Complete Data')
-        qprog = LoadingData(p_X, f_X)
+        print('\t Load Data for Expected Value of function')
+        Qprog = ExpectationLoadingData(p_X, f_X)
 
     print('Making Circuit')
-    circuit = qprog.to_circ()
+    circuit = Qprog.to_circ()
+
+    from qat.core.console import display
+    display(circuit, max_depth = depth)
     if function == 'P':
         job = circuit.to_job()
     else:
@@ -167,9 +224,13 @@ if __name__ == '__main__':
     "Working Example"
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--nqbits', type=int, help='Number Of Qbits', default  = 6)
-    parser.add_argument('-depth', type=int, help='Depth of the Diagram', default = 0)
-    parser.add_argument('-t', '--type', default = None, help='Type of Loading: P: Load Probability. I: Load Integral. Otherwise: Load Complete Data')
+    parser.add_argument('-n', '--nqbits', type=int, help='Number Of Qbits', 
+        default  = 6)
+    parser.add_argument('-depth', type=int, help='Depth of the Diagram', 
+        default = 0)
+    parser.add_argument('-t', '--type', default = None, 
+        help='Type of Loading: P: Load Probability. I: Load Integral.\
+        Otherwise: Load Complete Data')
     args = parser.parse_args()
     #print(args)
 
