@@ -93,6 +93,12 @@ def LoadP_Gate(ProbabilityArray):
         Numpy array with the discretized probability to load. The number
         of qbits will be log2(len(ProbabilityArray)). 
 
+
+    Raises
+    ----------
+    AssertionError
+        if len(ProbabilityArray) != 2^n 
+
     Returns
     ----------
 
@@ -156,6 +162,11 @@ def LoadR_Gate(FunctionArray):
         Numpy array with the discretized function to load. 
         The number of qbits will be log2(len(FunctionArray))+1.
         Integral will be load in the last qbit 
+
+    Raises
+    ----------
+    AssertionError
+        if len(FunctionArray) != 2^n 
 
     Returns
     ----------
