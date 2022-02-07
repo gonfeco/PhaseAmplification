@@ -10,7 +10,7 @@ quantum state. Base of this module is the Lov Grover and Terry Rudolph
     http://arXiv.org/abs/quant-ph/0208112v1
 
 In this papper the probability is loaded by using a lot of controlled
-Y Rotations. This kind of implementation is inneficient and a based 
+Y Rotations. This kind of implementation is inneficient and a based
 quantum multiplexors one is prefered.
 
 Author: Gonzalo Ferro Costas
@@ -19,70 +19,57 @@ Version: Initial version
 """
 
 import numpy as np
-from qat.lang.AQASM import QRoutine, AbstractGate, X, RY, build_gate 
-from AuxiliarFunctions import TestBins, LeftConditionalProbability
-from AuxiliarFunctions import get_histogram
+from qat.lang.AQASM import QRoutine, RY, build_gate
+from qat.lang.AQASM.qint import QInt
+from AuxiliarFunctions import test_bins, left_conditional_probability
 
 
-@build_gate("CRBS", [int, int, float], arity = lambda x, y, z: x+1)
-def CRBS_Gate(Nqbits, ControlState, Theta):
-    """ 
-    This functions codify a input ControlState using Nqbits qbits and
-    apply a controlled Y-Rotation by ControlState of Theta on one 
+@build_gate("CRBS", [int, int, float], arity=lambda x, y, z: x+1)
+def crbs_gate(n_qbits, control_state, theta):
+    """
+    This functions codify a input control_state using n_qbits qbits and
+    apply a controlled Y-Rotation by control_state of theta on one
     aditional qbit.
 
     Parameters
     ----------
 
-    Nqbits : int
-        Number of qbits needed for codify the ControlState. 
-    ControlState : int
+    n_qbits : int
+        Number of qbits needed for codify the control_state.
+    control_state : int
         State for controlling the of the controlled Rotation.
-    Theta : float
+    theta : float
         Rotation angle (in radians)
 
     Returns
     ----------
-    
-    Qrout : quantum routine.
+
+    q_rout : quantum routine.
         Routine for creating a controlled multistate Rotation.
 
     """
-    from qat.lang.AQASM import QRoutine, RY
-    Qrout = QRoutine()
+    q_rout = QRoutine()
     #Use of quantum integer types for control qbits
-    from qat.lang.AQASM.qint import QInt
-    qcontrol = Qrout.new_wires(Nqbits, QInt)
+    qcontrol = q_rout.new_wires(n_qbits, QInt)
     #Qbit where rotation should be applied
-    qtarget = Qrout.new_wires(1)
-    #The control qbits should be equal to the input ControlState
+    qtarget = q_rout.new_wires(1)
+    #The control qbits should be equal to the input control_state
     #integer in order to apply the Rotation to the target qbit
-    expresion = (qcontrol==ControlState)
-    #An auxiliar qbit is created for storing the result of the 
+    expresion = (qcontrol == control_state)
+    #An auxiliar qbit is created for storing the result of the
     #expresion. This qbit will be in state |0> unless the control qbits
-    #equals the Integer ControlState where state will change to |1>
-    with Qrout.compute():
-        qAux = expresion.evaluate()
+    #equals the Integer control_state where state will change to |1>
+    with q_rout.compute():
+        q_aux = expresion.evaluate()
     #The Rotation on the target qbit will be controlled by the auxiliar
     #qbit which contains the result of the expresion evaluation
-    Qrout.apply(RY(Theta).ctrl(), qAux, qtarget)
+    q_rout.apply(RY(theta).ctrl(), q_aux, qtarget)
     #Finally we need to undo the evaluation of the expresion in order to
     #get the original control qbits
-    Qrout.uncompute()
-    return Qrout
+    q_rout.uncompute()
+    return q_rout
 
-#from qat.lang.AQASM import AbstractGate
-##Using generator function an abstract gate is created
-#CRBS_gate = AbstractGate(
-#    "CRBS", 
-#    [int, int, float], 
-#    circuit_generator = CRBS_generator,
-#    arity = lambda x, y, z: x+1
-#)
-
-
-
-def LoadP_Gate(ProbabilityArray):
+def load_p_gate(probability_array):
     """
     Creates a customized AbstractGate for loading a discretized
     Probability.
@@ -90,127 +77,111 @@ def LoadP_Gate(ProbabilityArray):
     Parameters
     ----------
 
-    ProbabilityArray : numpy array
+    probability_array : numpy array
         Numpy array with the discretized probability to load. The number
-        of qbits will be log2(len(ProbabilityArray)). 
+        of qbits will be log2(len(probability_array)).
 
 
     Raises
     ----------
     AssertionError
-        if len(ProbabilityArray) != 2^n 
+        if len(probability_array) != 2^n
 
     Returns
     ----------
 
-    P_Gate :  AbstractGate
-        Customized Abstract Gate for Loading Probability array 
+    p_gate :  AbstractGate
+        Customized Abstract Gate for Loading Probability array
     """
 
-    n_qbits = TestBins(ProbabilityArray, 'Probability')
+    n_qbits = test_bins(probability_array, 'Probability')
 
-    @build_gate("P_Gate", [], arity = n_qbits)
-    def P_Gate():
+    @build_gate("P_Gate", [], arity=n_qbits)
+    def p_gate():
         """
-        Function generator for the AbstractGate that allows the loading 
+        Function generator for the AbstractGate that allows the loading
         of a discretized Probability in a Quantum State.
-    
+
         Returns
         ----------
 
-        Qrout : Quantum Routine
+        q_rout : Quantum Routine
             Quantum Routine for loading Probability
         """
-    
-        Qrout = QRoutine()
-        qbits = Qrout.new_wires(n_qbits)
-        nbins = len(ProbabilityArray)
-    
+
+        q_rout = QRoutine()
+        qbits = q_rout.new_wires(n_qbits)
         for i in range(0, n_qbits):
-            ConditionalProbability = LeftConditionalProbability(
-                i, ProbabilityArray)
-            Thetas = 2.0*(np.arccos(np.sqrt(ConditionalProbability)))
-    
+            conditional_probability = left_conditional_probability(
+                i, probability_array)
+            thetas_list = 2.0*(np.arccos(np.sqrt(conditional_probability)))
             if i == 0:
                 #The first qbit is a typical y Rotation
-                Qrout.apply(RY(Thetas[0]), qbits[0])
+                q_rout.apply(RY(thetas_list[0]), qbits[0])
             else:
-                #The different rotations should be applied over the 
-                #i+1 qbit. Each rotation is controlled by all the 
+                #The different rotations should be applied over the
+                #i+1 qbit. Each rotation is controlled by all the
                 #posible states formed with i qbits
-                for j, theta in enumerate(Thetas):
-                    #Next lines do the following operation: 
+                for j, theta in enumerate(thetas_list):
+                    #Next lines do the following operation:
                     #|j> x Ry(2*\theta_{j})|0>
-                    gate = CRBS_Gate(i, j, theta)
-                    Qrout.apply(gate, qbits[:i+1])
-        return Qrout
-    #P_Gate = AbstractGate(
-    #    "P_Gate",
-    #    [],
-    #    circuit_generator = P_generator,
-    #    arity = TestBins(ProbabilityArray, 'Probability')
-    #)
-    return P_Gate()
+                    gate = crbs_gate(i, j, theta)
+                    q_rout.apply(gate, qbits[:i+1])
+        return q_rout
+    return p_gate()
 
-def LoadR_Gate(FunctionArray):
+def load_r_gate(function_array):
     """
-    Creates a customized AbstractGate for loading the integral of a 
+    Creates a customized AbstractGate for loading the integral of a
     discretized function in a Quantum State.
-    
+
     Parameters
     ----------
 
-    FunctionArray : numpy array 
-        Numpy array with the discretized function to load. 
-        The number of qbits will be log2(len(FunctionArray))+1.
-        Integral will be load in the last qbit 
+    function_array : numpy array
+        Numpy array with the discretized function to load.
+        The number of qbits will be log2(len(function_array))+1.
+        Integral will be load in the last qbit
 
     Raises
     ----------
     AssertionError
-        if len(FunctionArray) != 2^n 
+        if len(function_array) != 2^n
 
     Returns
     ----------
-    
+
     R_Gate: AbstractGate
         AbstractGate customized for loadin the integral of the function.
     """
 
-    nqbits_ = TestBins(FunctionArray, 'Function')
+    nqbits_ = test_bins(function_array, 'Function')
     #Calculation of the rotation angles
-    Thetas = 2.0*np.arcsin(np.sqrt(FunctionArray))
+    thetas_list = 2.0*np.arcsin(np.sqrt(function_array))
 
-    @build_gate("R_Gate", [], arity = nqbits_+1)
-    def R_Gate():
+    @build_gate("R_Gate", [], arity=nqbits_+1)
+    def r_gate():
         """
-        Function generator for creating an AbstractGate that allows 
-        the loading of the integral of a given discretized function 
+        Function generator for creating an AbstractGate that allows
+        the loading of the integral of a given discretized function
         array into a Quantum State.
-    
+
         Returns
         ----------
 
-        Qrout : quantum routine
+        q_rout : quantum routine
             Routine for loading the input function as a integral
-            on the last qbit. 
+            on the last qbit.
         """
-    
-        Qrout = QRoutine()
-        qbits = Qrout.new_wires(nqbits_+1)
-        NumberOfStates = 2**nqbits_
+
+        q_rout = QRoutine()
+        qbits = q_rout.new_wires(nqbits_+1)
+        number_of_states = 2**nqbits_
         #Loop over the States
-        for i in range(NumberOfStates):
+        for i in range(number_of_states):
             #State |i>
             #Generation of a Controlled rotation of theta by state |i>
-            Qrout.apply(CRBS_Gate(nqbits_, i, Thetas[i]), qbits)
-        return Qrout
+            q_rout.apply(crbs_gate(nqbits_, i, thetas_list[i]), qbits)
+        return q_rout
 
-    #R_Gate = AbstractGate(
-    #    "R_Gate",
-    #    [],
-    #    circuit_generator = R_generator,
-    #    arity = TestBins(FunctionArray, 'Function')+1
-    #)
-    return R_Gate()
-
+    return r_gate()
