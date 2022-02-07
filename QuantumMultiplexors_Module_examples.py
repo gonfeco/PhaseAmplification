@@ -9,7 +9,7 @@ in the QuantumMultiplexors_Module
 """
 
 import numpy as np
-from AuxiliarFunctions import TestBins, PostProcessResults, RunJob, get_histogram
+from AuxiliarFunctions import postprocess_results, run_job, get_histogram
 from QuantumMultiplexors_Module import load_p_gate, load_r_gate
 from qat.lang.AQASM import Program, H
 from qat.core.console import display
@@ -171,8 +171,8 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
         job = circuit.to_job()
     else:
         job = circuit.to_job(qubits=[n_qbits])
-    result = RunJob(lineal_qpu.submit(job))
-    results = PostProcessResults(result)
+    result = run_job(lineal_qpu.submit(job))
+    results = postprocess_results(result)
     print(results)
     if function == 'P':
         condition = np.isclose(results['Probability'], p_x).all()
@@ -188,7 +188,8 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
     else:
         integral_measurement = results['Probability'][1]
         print('Integral Measurement: {}'.format(integral_measurement))
-        print('Expectation of f(x) for x~p(x): Integral p(x)f(x): {}'.format(sum(p_x*f_x)))
+        print('Expectation of f(x) for x~p(x): Integral p(x)f(x):\
+            {}'.format(sum(p_x*f_x)))
         condition = np.isclose(integral_measurement, sum(p_x*f_x))
         print('This is correct? {}'.format(condition))
 

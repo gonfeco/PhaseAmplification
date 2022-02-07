@@ -16,9 +16,8 @@ MyQLM version:
 """
 
 import numpy as np
-from qat.lang.AQASM import QRoutine, AbstractGate, RY, CNOT, build_gate
-from AuxiliarFunctions import TestBins, LeftConditionalProbability
-from AuxiliarFunctions import get_histogram
+from qat.lang.AQASM import QRoutine, RY, CNOT, build_gate
+from AuxiliarFunctions import test_bins, left_conditional_probability
 
 
 def multiplexor_ry_m_recurs(qprog, qbits, thetas, r_controls, i_target, sig=1.0):
@@ -139,7 +138,7 @@ def load_p_gate(probability_array):
         Quantum Multiplexors
     """
 
-    nqbits = TestBins(probability_array, text='Function')
+    nqbits = test_bins(probability_array, text='Function')
 
     @build_gate("P_Gate", [], arity=nqbits)
     def p_gate_qm():
@@ -160,7 +159,7 @@ def load_p_gate(probability_array):
         #probabilities and adding the corresponding multiplexor
         for m in range(nqbits):
             #Calculates Conditional Probability
-            conditional_probability = LeftConditionalProbability(
+            conditional_probability = left_conditional_probability(
                 m, probability_array)
             #Rotation angles: length: 2^(i-1)-1 and i the number of
             #qbits of the step
@@ -206,7 +205,7 @@ def load_r_gate(function_array):
     assert np.all(function_array >= 0.), text_str
     text_str = 'the output of the function p must be a numpy array'
     assert isinstance(function_array, np.ndarray), text_str
-    nqbits = TestBins(function_array, text='Function')
+    nqbits = test_bins(function_array, text='Function')
     #Calculation of the rotation angles
     thetas = 2.0*np.arcsin(np.sqrt(function_array))
 
