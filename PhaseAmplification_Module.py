@@ -6,21 +6,18 @@ MyQLM version:
 
 """
 
-from qat.lang.AQASM import AbstractGate, QRoutine, X, Z
-from qat.lang.AQASM import QRoutine, H, build_gate, Program
+from qat.lang.AQASM import QRoutine, build_gate, X, Z
 
 @build_gate("U_Phi_0", [int], arity=lambda n: n)
-def UPhi0_Gate(nqbits):
-    #def U_Phi0_generator(nqbits):
+def uphi0_gate(nqbits):
     """
-    Circuit generator for creating gate U_Phi_0 for Phase 
-    Amplification Algorithm. For a n+1 qbit system where the quantum 
+    Circuit generator for creating gate U_Phi_0 for Phase
+    Amplification Algorithm. For a n+1 qbit system where the quantum
     state can be decomposed by:
-        |Psi>_{n+1} =a*|Phi_{n}>|1>+b|Phi_{n}>|0>. 
-    The function implements a reflexion around the state |Phi_{n}>|1>. 
-    The operator implemented is: 
+        |Psi>_{n+1} =a*|Phi_{n}>|1>+b|Phi_{n}>|0>.
+    The function implements a reflexion around the state |Phi_{n}>|1>.
+    The operator implemented is:
         I-2|Phi_{n}>|0><0|<Phi_{n}|
-    
     Parameters
     ----------
 
@@ -30,171 +27,124 @@ def UPhi0_Gate(nqbits):
     Returns
     ----------
 
-    Qrout : QLM Routine
+    q_rout : QLM Routine
         Quantum routine wiht the circuit implementation for operator:
             I-2|Phi_{n}>|0><0|<Phi_{n}|
     """
-    Qrout = QRoutine()
-    qbits = Qrout.new_wires(nqbits)
-    Qrout.apply(X, qbits[-1])
-    Qrout.apply(Z, qbits[-1])
-    Qrout.apply(X, qbits[-1])
-    
-    return Qrout
-##Definition of the Abstract Gate
-#U_Phi_0 = AbstractGate(
-#    "U_Phi_0",
-#    [int],
-#    circuit_generator = U_Phi0_generator,
-#    arity = lambda x: x
-#)
+    q_rout = QRoutine()
+    qbits = q_rout.new_wires(nqbits)
+    q_rout.apply(X, qbits[-1])
+    q_rout.apply(Z, qbits[-1])
+    q_rout.apply(X, qbits[-1])
+    return q_rout
 
 @build_gate("D_0", [int], arity=lambda n: n)
-def D0_Gate(nqbits):
+def d0_gate(nqbits):
     """
     Circuit generator for create an Abstract Gate that implements a
     Reflexion around the state perpendicular to |0>_{n}.
-    Implements operator: 
+    Implements operator:
         I-2|0>_{n}{n}<0| = X^{n}c^{n-1}ZX^{n}
-    
     Parameters
     ----------
-
     nqbits : int
         Number of Qbits of the Abstract Gate
-
     Returns
     ----------
-
-    Qrout : QLM Routine
+    q_rout : QLM Routine
         Quantum routine wiht the circuit implementation for operator:
             I-2|0>_{n}{n}<0|
     """
-    Qrout = QRoutine()
-    qbits = Qrout.new_wires(nqbits)
+    q_rout = QRoutine()
+    qbits = q_rout.new_wires(nqbits)
     for i in range(nqbits):
-        Qrout.apply(X, qbits[i])
+        q_rout.apply(X, qbits[i])
     #Controlled Z gate by n-1 first qbits
-    c_n_Z = Z.ctrl(nqbits-1)
-    Qrout.apply(c_n_Z, qbits[:-1], qbits[-1])
+    c_n_z = Z.ctrl(nqbits-1)
+    q_rout.apply(c_n_z, qbits[:-1], qbits[-1])
     for i in range(nqbits):
-        Qrout.apply(X, qbits[i])
-    
-    return Qrout
-#D0_Gate = AbstractGate(
-#    "D_0",
-#    [int],
-#    circuit_generator = D0_generator,
-#    arity = lambda x: x
-#)
+        q_rout.apply(X, qbits[i])
+    return q_rout
 
-def Load_UPhi_Gate(P_gate, R_gate):
+def load_uphi_gate(p_gate, r_gate):
     """
     Create gate U_Phi mandatory for Phase Amplification Algorithm.
-    The operator to implement is: 
-        I-2|Phi_{n-1}><Phi_{n-1}|. 
-    Where the state |Phi_{n-1}> is: |Phi_{n-1}>=R*P*|0_{n+1}>. 
-    Where R and P are the gates to load the integral of a function 
+    The operator to implement is:
+        I-2|Phi_{n-1}><Phi_{n-1}|.
+    Where the state |Phi_{n-1}> is: |Phi_{n-1}>=R*P*|0_{n+1}>.
+    Where R and P are the gates to load the integral of a function
     f(x) and  the load of a distribution probabilitiy p(x) respectively.
-
     Parameters
     ----------
-
-    P_gate : QLM AbstractGate
+    p_gate : QLM AbstractGate
         Customized AbstractGate for loading probability distribution.
-    R_gate : QLM AbstractGate
+    r_gate : QLM AbstractGate
         Customized AbstractGatel for loading integral of a function f(x)
     Outputs:
         * U_Phi: guantum gate that implements U_Phi gate
     """
-    
-    from qat.lang.AQASM import AbstractGate, QRoutine
-    #The arity of the R_gate fix the number of qbits for the routine
-    nqbits = R_gate.arity
+    #The arity of the r_gate fix the number of qbits for the routine
+    nqbits = r_gate.arity
 
-    @build_gate("UPhi", [], arity = nqbits)
-    def UPhi_Gate():
+    @build_gate("UPhi", [], arity=nqbits)
+    def u_phi_gate():
         """
-        Circuit generator for the UPhi_Gate.
+        Circuit generator for the u_phi_gate.
         Operation to be implemented: R*P*D_0*P^{+}R^{+}
-    
         Returns
         ----------
-    
-        Qrout : Quantum Routinequantum
+        q_rout : Quantum Routinequantum
             Quantum Routine with the circuit implementation for operator:
             R*P*D_0*P^{+}R^{+}
         """
-        
-        Qrout = QRoutine()
-        qbits = Qrout.new_wires(nqbits)
-        Qrout.apply(R_gate.dag(), qbits)
-        Qrout.apply(P_gate.dag(), qbits[:-1])
-        D_0 = D0_Gate(nqbits)
-        Qrout.apply(D_0, qbits)
-        Qrout.apply(P_gate, qbits[:-1])
-        Qrout.apply(R_gate, qbits)
-        return Qrout
-    #U_Phi = AbstractGate(
-    #    "UPhi", 
-    #    [],
-    #    circuit_generator = U_Phi_generator,
-    #    arity = nqbits
-    #)
-    return UPhi_Gate()    
+        q_rout = QRoutine()
+        qbits = q_rout.new_wires(nqbits)
+        q_rout.apply(r_gate.dag(), qbits)
+        q_rout.apply(p_gate.dag(), qbits[:-1])
+        d_0 = d0_gate(nqbits)
+        q_rout.apply(d_0, qbits)
+        q_rout.apply(p_gate, qbits[:-1])
+        q_rout.apply(r_gate, qbits)
+        return q_rout
+    return u_phi_gate()
 
-def Load_Q_Gate(P_gate, R_gate):
+def load_q_gate(p_gate, r_gate):
     """
     Create complete AbstractGate for Amplitude Amplification Algorithm.
-    The operator to implement is: 
-        UPhi0_Gate*UPhi_Gate
+    The operator to implement is:
+        uphi0_gate*u_phi_gate
     This operator implements a y Rotation around the input state:
         Ry(Theta)|Phi> where |Phi> is the input State
-    Where Theta is given by the square root of the expected value of 
-    function f(x) (loaded by R_gate) under a probability density p(x)
-    (loaded by P_gate):
+    Where Theta is given by the square root of the expected value of
+    function f(x) (loaded by r_gate) under a probability density p(x)
+    (loaded by p_gate):
         sin(Theta) = sqrt(Expected_p(x)[f(x)])
-
     Parameters
     ----------
-
-    P_gate : QLM AbstractGate
+    p_gate : QLM AbstractGate
         Customized AbstractGate for loading probability distribution.
-    R_gate : QLM AbstractGate
+    r_gate : QLM AbstractGate
         Customized AbstractGatel for loading integral of a function f(x)
-    
     Returns
     ----------
-    
     Q_Gate : AbstractGate
         Customized AbstractGate for Amplitude Amplification Algorithm
     """
-
-    nqbits = R_gate.arity
-
-    @build_gate("Q_Gate", [], arity = nqbits)
-    def Q_Gate():
+    nqbits = r_gate.arity
+    @build_gate("Q_Gate", [], arity=nqbits)
+    def q_gate():
         """
         Function generator for creating an AbstractGate for implementation
-        of the Amplification Amplitude Algorithm (Q) 
-    
+        of the Amplification Amplitude Algorithm (Q)
         Returns
         ----------
-
-        Qrout : quantum routine
-            Routine for Amplitude Amplification Algorithm 
+        q_rout : quantum routine
+            Routine for Amplitude Amplification Algorithm
         """
-        Qrout = QRoutine()
-        qbits = Qrout.new_wires(nqbits)
-        Qrout.apply(UPhi0_Gate(nqbits), qbits)
-        UPhi_Gate = Load_UPhi_Gate(P_gate, R_gate)
-        Qrout.apply(UPhi_Gate, qbits)
-        return Qrout
-        #Q = AbstractGate(
-        #    "UPhi", 
-        #    [],
-        #    circuit_generator = Q_generator,
-        #    arity = nqbits
-        #)
-    return Q_Gate()    
-
+        q_rout = QRoutine()
+        qbits = q_rout.new_wires(nqbits)
+        q_rout.apply(uphi0_gate(nqbits), qbits)
+        u_phi_gate = load_uphi_gate(p_gate, r_gate)
+        q_rout.apply(u_phi_gate, qbits)
+        return q_rout
+    return q_gate()
