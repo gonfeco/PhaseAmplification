@@ -160,7 +160,8 @@ def postprocess_results(results):
     q_amplitude = []
     for sample in results:
         q_probability.append(sample.probability)
-        q_states.append(str(sample.state))
+        #q_states.append(str(sample.state))
+        q_states.append(sample.state)
         q_amplitude.append(sample.amplitude)
     q_probability = pd.Series(q_probability, name='Probability')
     q_states = pd.Series(q_states, name='States')
