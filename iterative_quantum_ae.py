@@ -223,15 +223,9 @@ def step_iqae_easy(q_prog, q_gate, q_aux, c_bits, l):
         print('\t j: {}. theta: {}'.format(j, theta))
         q_prog.cc_apply(c_bits[j], PH(-(np.pi/2.0)*theta), q_aux)
 
-    #for j in range(m-l+1, m+1, 1):
-    #    theta = 2**(m-l-j+1)
-    #    print('\t j: {}. theta: {}'.format(j-1, theta))
-    #    q_prog.cc_apply(c_bits[j-1], PH(-(np.pi/2.0)*theta), q_aux)
-
     print('m: {}. l: {}'.format(m, l))
     q_prog.apply(H, q_aux)
     #print(m-l-1)
-    #q_prog.measure(q_aux, c_bits[m-l-1])
     q_prog.measure(q_aux, c_bits[l])
     return q_prog
 
@@ -260,11 +254,6 @@ class IterativeQuantumAE:
         self.meas_gates = None
         self.job = None
         self.job_result = None
-        #self.cbit_solution = None
-        #self.measured_solution_bits = None
-        #self.measured_solution_int = None
-        #self.measured_phi = None
-        #self.measured_probability = None
         self.results = None
 
 
@@ -334,77 +323,4 @@ class IterativeQuantumAE:
         list_of_results = [im_postprocess(r) for r in self.job_result]
         self.results = pd.concat(list_of_results)
         self.results.reset_index(drop=True, inplace=True)
-
-        #if len(self.job_result) == 1:
-        #    results_0 = self.job_result[0]
-        #    step_im = results_0.intermediate_measurements
-        #    self.cbit_solution = [
-        #        [im.cbits[0], im.probability] for im in step_im\
-        #        if im.gate_pos in self.meas_gates
-        #    ]
-        #    if len(self.cbit_solution) == 0:
-        #        #For myqlm
-        #        self.cbit_solution =[
-        #            [bool(im.cbits[0]), im.probability] for i, im in\
-        #            enumerate(step_im) if i%2 == 1
-        #        ]
-        #else:
-        #    raise ValueError('Problem with the measured qbit!!')
-
-        #self.cbit_solution.reverse()
-
-    #def get_solutions(self):
-    #    """
-    #    DISABLE Method. Not Correct
-    #    This method creates de pandas DataFrame with the final solution.
-    #    Pandas DataFrame will have following columns:
-    #        Int : Posible integers from cbit_solution
-    #        Bol : bolean string of the posible integers from cbit_solution
-    #        Probability : Probability of each posible integer
-    #        theta : posible estimation angel based on each posible integer
-    #    """
-
-
-    #    #posible integers that can be represented by len(self.cbit_solution)
-    #    int_list = list(range(2**len(self.cbit_solution)))
-    #    #string bolean representation of each posible integer
-    #    bits_list = [format(i, "b").zfill(len(self.cbit_solution))\
-    #        for i in range(2**len(self.cbit_solution))]
-    #    #probabilit of each integer based on probabilities of self.cbit_solution
-    #    prob_list = []
-    #    for b in bits_list:
-    #        prob_list.append(get_probability(b, self.cbit_solution))
-    #    self.results = pd.DataFrame({
-    #        'Int' : int_list,
-    #        'Bol' : bits_list,
-    #        'Probability': prob_list
-    #    })
-    #    #We will give phi instead theta. If you want theta: theta=2*pi*phi
-    #    #For expectation value of a function remeber that Q operator
-    #    #is a rotation of 2*theta. So if you want theta: theta=pi*phi
-    #    print('In final solution Phi instead of theta is given')
-    #    print('For theta yo need: theta = 2*np.pi*phi')
-    #    print('For expectation value of a function Q operator')
-    #    print('implements a rotation of 2*theta. In this case do:')
-    #    print('theta = np.pi*phi')
-    #    #2*theta so 2*theta = 2*pi*thetas
-    #    n_total = 2**len(self.cbit_solution)
-    #    self.results['phi'] = self.results['Int']/n_total
-
-    #def meas_solution(self):
-    #def get_solutions(self):
-    #    self.measured_solution_bits = ''.join([str(int(i[0])) for i in\
-    #        self.cbit_solution])
-    #    self.measured_solution_int = int(self.measured_solution_bits, 2)
-    #    n_total = 2**len(self.cbit_solution)
-    #    self.measured_phi = self.measured_solution_int/n_total
-    #    self.measured_probability = np.prod([i[1] for i in self.cbit_solution])
-    #    self.results = pd.DataFrame({
-    #        'BitString': [self.measured_solution_bits],
-    #        'BitInt': [self.measured_solution_int],
-    #        'Phi': [self.measured_phi],
-    #        'Probability': [self.measured_probability]
-    #    })
-
-
 
