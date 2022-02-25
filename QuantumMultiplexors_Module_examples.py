@@ -106,7 +106,7 @@ def expectation_loading_data(p_x, f_x):
     return q_prog, p_gate, r_gate
 
 
-def Do(n_qbits=6, depth=0, function='DataLoading'):
+def Do(n_qbits=6, depth=0, function='DataLoading', QLMASS=True):
     """
     Function for testing purpouses. This function is used when the
     script is executed from command line using arguments. It executes
@@ -117,6 +117,7 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
 
     Parameters
     ----------
+
     n_qbits : int.
         Number of Qbits for the quantum circuit.
     depth : int
@@ -127,6 +128,8 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
             'P' : LoadProbabilityProgram
             'I' : LoadIntegralProgram
             Otherwise : ExpectationLoadingData
+    QLMASS : bool
+        For using or not QLM QPU (QLM as a Service)
     """
     def p(x):
         return x*x
@@ -143,13 +146,18 @@ def Do(n_qbits=6, depth=0, function='DataLoading'):
     print('########################################')
 
     #QPU connection
-    try:
-        from qat.qlmaas import QLMaaSConnection
-        connection = QLMaaSConnection('qlm')
-        lin_alg = connection.get_qpu("qat.qpus:LinAlg")
-        lineal_qpu = lin_alg()
-    except (ImportError, OSError) as e:
-        print('Problem: usin PyLinalg')
+    if QLMASS:
+        try:
+            from qat.qlmaas import QLMaaSConnection
+            connection = QLMaaSConnection()
+            lin_alg = connection.get_qpu("qat.qpus:LinAlg")
+            lineal_qpu = lin_alg()
+        except (ImportError, OSError) as e:
+            print('Problem: usin PyLinalg')
+            from qat.qpus import PyLinalg
+            lineal_qpu = PyLinalg()
+    else:
+        print('User Forces: PyLinalg')
         from qat.qpus import PyLinalg
         lineal_qpu = PyLinalg()
 
@@ -217,9 +225,21 @@ if __name__ == '__main__':
         help='Type of Loading: P: Load Probability. R: Load Integral.\
         Otherwise: Load Complete Data'
     )
+    parser.add_argument(
+        '--qlmass',
+        dest='qlmass',
+        default=False,
+        action='store_true',
+        help='For using or not QLM as a Service'
+    )
     args = parser.parse_args()
-    #print(args)
+    print(args)
 
-    Do(n_qbits=args.nqbits, depth=args.depth, function=args.type)
+    Do(
+        n_qbits=args.nqbits,
+        depth=args.depth,
+        function=args.type,
+        QLMASS=args.qlmass
+    )
 
 

@@ -150,13 +150,15 @@ if __name__ == '__main__':
         '--qlmass',
         dest='qlmass',
         default=False,
-        action='store_true'
+        action='store_true',
+        help='For using or not QLM as a Service'
     )
     parser.add_argument(
         '--save',
         dest='save',
         default=False,
-        action='store_true'
+        action='store_true',
+        help='For saving or not pandas DataFrame results'
     )
     args = parser.parse_args()
     print(args)
