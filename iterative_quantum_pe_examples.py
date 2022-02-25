@@ -1,7 +1,7 @@
 """
 This script contains an example of using the implementation of the
-Iterative Quantum Amplitude Estimation algorithm
-(module iterative_quantum_ae.py)
+Iterative Quantum Phase Estimation algorithm
+(module iterative_quantum_pe.py)
 
 Author:Gonzalo Ferro Costas
 
@@ -15,7 +15,7 @@ from AuxiliarFunctions import  get_histogram, postprocess_results, test_bins,\
 run_job
 from QuantumMultiplexors_Module_examples import expectation_loading_data
 from PhaseAmplification_Module import load_q_gate
-from iterative_quantum_ae import IterativeQuantumAE
+from iterative_quantum_pe import IterativeQuantumPE
 
 def getstaff(InputPDF):
     """
@@ -116,9 +116,9 @@ def Do(n_qbits=6, n_cbits=6, shots=0, QLMASS=True, Save=False):
         'easy': True,
         'shots': shots
     }
-    iqae = IterativeQuantumAE(q_prog, q_gate, **zalo_dict)
-    iqae.iqae()
-    pdf = getstaff(iqae.results)
+    iqpe = IterativeQuantumPE(q_prog, q_gate, **zalo_dict)
+    iqpe.iqpe()
+    pdf = getstaff(iqpe.results)
     file_name = 'Results_classIQPE_nqbits_{}_ncbits_{}_shots_{}_QLMASS_{}.csv'\
     .format(n_qbits, n_cbits, shots, QLMASS)
     if Save:

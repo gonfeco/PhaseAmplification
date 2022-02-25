@@ -1,6 +1,6 @@
 """
 This module contains necesary functions and classes to implement
-Iterative Quantum Amplitude Estimation (IQAE)
+Iterative Quantum Phase Estimation (IQPE)
 
 Author:Gonzalo Ferro Costas
 
@@ -12,8 +12,26 @@ import numpy as np
 import pandas as pd
 from qat.lang.AQASM import H, PH
 from qat.comm.datamodel.ttypes import OpType
+from AuxiliarFunctions import run_job 
 
 def get_qpu(QLMASS=True):
+    """
+    Function for selecting solver. User can choose between QLM QPU in CESGA
+    or using QLM simulator PyLinalg
+
+    Parameters
+    ----------
+    
+    QLMASS : Bool
+        If True function will try to use QLM as a Service.
+        If False fucntion will invoque PyLinalg QLM simulator
+        
+
+    Returns
+    ----------
+    lineal_qpu : simulator used for solvinf QLM circuits
+
+    """
     if QLMASS:
         try:
             from qat.qlmaas import QLMaaSConnection
@@ -29,14 +47,6 @@ def get_qpu(QLMASS=True):
         from qat.qpus import PyLinalg
         lineal_qpu = PyLinalg()
     return lineal_qpu
-
-def run_job(result):
-    try:
-        return result.join()
-        #State = PostProcessresults(result.join())
-    except AttributeError:
-        return result
-        #State = PostProcessresults(result)
 
 def im_postprocess(result):
     """
@@ -125,7 +135,7 @@ def get_probability(bit, clasical_bits):
     return total_probability
 
 
-def step_iqae(q_prog, q_gate, q_aux, c_bits, l):
+def step_iqpe(q_prog, q_gate, q_aux, c_bits, l):
     """
     Implements a iterative step of the Iterative Phase Estimation (IPE)
     algorithm.
@@ -176,7 +186,7 @@ def step_iqae(q_prog, q_gate, q_aux, c_bits, l):
     q_prog.measure(q_aux, c_bits[m-l-1])
     return q_prog
 
-def step_iqae_easy(q_prog, q_gate, q_aux, c_bits, l):
+def step_iqpe_easy(q_prog, q_gate, q_aux, c_bits, l):
     """
     Implements a iterative step of the Iterative Phase Estimation (IPE)
     algorithm.
@@ -230,7 +240,7 @@ def step_iqae_easy(q_prog, q_gate, q_aux, c_bits, l):
     return q_prog
 
 
-class IterativeQuantumAE:
+class IterativeQuantumPE:
 
     def __init__(self, q_prog, q_gate, **kwargs):
         #Initial Quatum Program. For restarting purpouses
@@ -269,18 +279,18 @@ class IterativeQuantumAE:
         self.cbits_number_ = value
         #We update the allocate classical bits each time we change cbits_number
 
-    def init_iqae(self):#, number_of_cbits=None):
+    def init_iqpe(self):#, number_of_cbits=None):
         self.restart()
         self.q_prog = copy.deepcopy(self.init_q_prog)
         self.q_aux = self.q_prog.qalloc(1)
         self.c_bits = self.q_prog.calloc(self.cbits_number)
 
-    def apply_iqae(self):
+    def apply_iqpe(self):
         for l in range(len(self.c_bits)):
             if self.easy:
-                step_iqae_easy(self.q_prog, self.q_gate, self.q_aux, self.c_bits, l)
+                step_iqpe_easy(self.q_prog, self.q_gate, self.q_aux, self.c_bits, l)
             else:
-                step_iqae(self.q_prog, self.q_gate, self.q_aux, self.c_bits, l)
+                step_iqpe(self.q_prog, self.q_gate, self.q_aux, self.c_bits, l)
 
     def get_circuit(self):
         self.circuit = self.q_prog.to_circ(submatrices_only=True)
@@ -299,15 +309,15 @@ class IterativeQuantumAE:
             self.lineal_qpu = qpu
         self.job_result = run_job(self.lineal_qpu.submit(self.job))
     
-    def iqae(self, number_of_cbits=None, shots=None):
+    def iqpe(self, number_of_cbits=None, shots=None):
 
         if number_of_cbits is not None:
             self.cbits_number = number_of_cbits
         if shots is not None:
             self.shots = shots
 
-        self.init_iqae()
-        self.apply_iqae()
+        self.init_iqpe()
+        self.apply_iqpe()
         self.get_circuit()
         self.get_job()
         self.get_job_result()
