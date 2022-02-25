@@ -150,7 +150,7 @@ def step_iqae(q_prog, q_gate, q_aux, c_bits, l):
         iteration step of the IPE algorithm
 
     """
-    print('VERSION GONZALO!!')
+    #print('VERSION GONZALO!!')
 
     q_prog.reset(q_aux)
     #Getting the principal qbits
@@ -163,16 +163,16 @@ def step_iqae(q_prog, q_gate, q_aux, c_bits, l):
     #Number of controlled application of the unitary operator by auxiliar
     #qbit over the principal qbits
     unitary_applications = int(2**(m-l-1))
-    print('unitary_applications: {}'.format(unitary_applications))
+    #print('unitary_applications: {}'.format(unitary_applications))
     for i in range(unitary_applications):
         q_prog.apply(q_gate.ctrl(), q_aux, q_bits)
     for j in range(m-l+1, m+1, 1):
         theta = 2**(m-l-j+1)
-        print('\t j: {}. theta: {}'.format(j-1, theta))
+        #print('\t j: {}. theta: {}'.format(j-1, theta))
         q_prog.cc_apply(c_bits[j-1], PH(-(np.pi/2.0)*theta), q_aux)
-    print('m: {}. l: {}'.format(m, l))
+    #print('m: {}. l: {}'.format(m, l))
     q_prog.apply(H, q_aux)
-    print(m-l-1)
+    #print(m-l-1)
     q_prog.measure(q_aux, c_bits[m-l-1])
     return q_prog
 
@@ -202,7 +202,7 @@ def step_iqae_easy(q_prog, q_gate, q_aux, c_bits, l):
 
     """
 
-    print('VERSION EASY!!')
+    #print('VERSION EASY!!')
     q_prog.reset(q_aux)
     #Getting the principal qbits
     q_bits = q_prog.registers[0]
@@ -214,16 +214,16 @@ def step_iqae_easy(q_prog, q_gate, q_aux, c_bits, l):
     #Number of controlled application of the unitary operator by auxiliar
     #qbit over the principal qbits
     unitary_applications = int(2**(m-l-1))
-    print('unitary_applications: {}'.format(unitary_applications))
+    #print('unitary_applications: {}'.format(unitary_applications))
     for i in range(unitary_applications):
         q_prog.apply(q_gate.ctrl(), q_aux, q_bits)
 
     for j in range(l):
         theta = 1.0/(2**(l-j-1))
-        print('\t j: {}. theta: {}'.format(j, theta))
+        #print('\t j: {}. theta: {}'.format(j, theta))
         q_prog.cc_apply(c_bits[j], PH(-(np.pi/2.0)*theta), q_aux)
 
-    print('m: {}. l: {}'.format(m, l))
+    #print('m: {}. l: {}'.format(m, l))
     q_prog.apply(H, q_aux)
     #print(m-l-1)
     q_prog.measure(q_aux, c_bits[l])
