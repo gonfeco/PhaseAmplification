@@ -122,7 +122,7 @@ class MaximumLikelihoodAE:
     def __init__(self, q_prog, q_gate, **kwargs):
         #Quatum Program
         self.q_prog = q_prog
-        #Quantum Gste to apply to quantum program
+        #Quantum Gate to apply to quantum program
         self.q_gate = q_gate
 
         #Setting attributes
