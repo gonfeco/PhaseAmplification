@@ -138,9 +138,9 @@ class MaximumLikelihoodQPE:
         Parameters
         ----------
         
-        q_prog : QLM quantum program
+        q_prog : QLM quantum program (mandatory)
             Quantum program where the Groover-like operator will be applied
-        q_gate : QLM gate
+        q_gate : QLM gate (mandatory)
             QLM gate that implements the Groover-like operator
         kwars : dictionary
             dictionary that allows the configuration of the ML-QPE algorithm:
