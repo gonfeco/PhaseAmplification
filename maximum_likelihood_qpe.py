@@ -20,6 +20,21 @@ import scipy.optimize as so
 from AuxiliarFunctions import run_job, postprocess_results
 
 def get_qpu(QLMASS=True):
+    """
+    Create the lineal solver for quantum jobs
+
+    Parameters
+    ----------
+
+    QLMASS : bool
+        If True  try to use QLM as a Service connection to CESGA QLM
+        If False PyLinalg simulator will be used
+
+    Returns
+    ----------
+    
+    lineal_qpu : solver for quantum jobs
+    """
     if QLMASS:
         try:
             from qat.qlmaas import QLMaaSConnection
@@ -48,17 +63,18 @@ def apply_gate(q_prog, q_gate, m_k, lineal_qpu, nbshots=0):
     q_prog : QLM quantum program
         QLM quantum program with initial configuration
     q_gate : QLM gate
-        QLM gate with the Groover-like operator to be applied
+        QLM gate with the Groover-like operator to be applied on the q_prog
     m_k : int
         number of times to apply the q_gate to the q_prog
     lineal_qpu : QLM solver
-        QLM solver for submitting a QLM job 
+        QLM solver for submitting a QLM job
     nbshots : int
-        number of shots to perform by the simulator or the QPU
+        number of shots to perform by the QLM solver
+
     Returns
     ----------
 
-    pdf : pandas dataframe
+    pdf : pandas DataFrame
         results of the measurement of the last qbit
     circuit : QLM circuit object
         circuit object generated for the quantum program
@@ -80,6 +96,27 @@ def apply_gate(q_prog, q_gate, m_k, lineal_qpu, nbshots=0):
     return pdf, circuit, job
 
 def get_probabilities(InputPDF):
+    """
+    Auxiliar function for changing the presentation of the results for an
+    input pandas DataFrame
+
+    Parameters
+    ----------
+
+    InputPDF : pandas DataFrame. 
+        DataFrame with the info of the measurments. Should have following
+        columns:
+        States : states for the qbit measurement
+        Probability : probability for each state
+
+    Returns
+    ----------
+
+    output_pdf : pandas DataFrame
+        Changes the presentation of the results of a mesurement. 
+        Columns are now the  probability of the different states.
+    """
+
     pdf = InputPDF.copy(deep=True)
     columns = ['Probability_{}'.format(i) for i in pdf['States']]
     output_pdf = pd.DataFrame(
@@ -147,6 +184,9 @@ class MaximumLikelihoodQPE:
             Implemented keys:
             list_of_mks : list
                 python list with the different m_ks for executing the algortihm
+            nbshots : int
+                number of shots for quantum job. If 0 exact probabilities
+                will be computed. 
             qpu : QLM solver
                 solver for simulating the resulting circutis
             delta : float 
@@ -158,9 +198,6 @@ class MaximumLikelihoodQPE:
                 number of iterations of the optimizer
             display : bool
                 for displaying additional information in the optimization step
-            nbshots : int
-                number of shots for quantum job. If 0 exact probabilities
-                will be computed. 
         """
         #Quatum Program
         self.q_prog = q_prog
@@ -168,10 +205,12 @@ class MaximumLikelihoodQPE:
         self.q_gate = q_gate
         #A complete list of m_k
         self.list_of_mks = kwargs.get('list_of_mks', None)
-        if self.list_of_mks is not None:
-            self.list_of_mks = range(10) 
+        if self.list_of_mks is  None:
+            self.list_of_mks = range(10)
             print('list_of_mks not provide.list_of_mks: {} will be used'.format(
                 self.list_of_mks))
+        #If 0 we compute the exact probabilities
+        self.nbshots = kwargs.get('nbshots', 0)
         #Set the QPU to use
         self.lineal_qpu = kwargs.get('qpu', get_qpu())
         ##delta for avoid problems in 0 and pi/2 theta limits
@@ -185,15 +224,13 @@ class MaximumLikelihoodQPE:
         self.iterations = kwargs.get('iterations', 100)
         #For displaying extra info for optimization proccess
         self.disp = kwargs.get('disp', True)
-        #If 0 we compute the exact probabilities
-        self.nbshots = kwargs.get('nbshots', 0)
         #Setting attributes
         self.restart()
 
     def restart(self):
         self.pdf_mks = None
-        self.list_of_circuits = None
-        self.list_of_jobs = None
+        self.list_of_circuits = []
+        self.list_of_jobs = []
         self.theta = None
 
 
@@ -249,18 +286,27 @@ class MaximumLikelihoodQPE:
         This method is the core of the Maximum Likelihood Amplitude
         Estimation. It runs several quantum circuits each one increasing
         the number of self.q_gate applied to the the initial self.q_prog
+    
+        Parameters
+        ----------
+        
+        list_of_mks : list (corresponding property will be overwrite)
+            python list with the different m_ks for executing the algortihm
+        nbshots : int (corresponding property will be overwrite)
+            number of shots for quantum job. If 0 exact probabilities
+            will be computed
 
         """
 
+        self.restart()
         if list_of_mks is not None:
             self.list_of_mks = list_of_mks
         if nbshots is not None:
             self.nbshots = nbshots
         #Clean the list in each run
-        self.list_of_circuits = []
         pdf_list = []
         for m_k in self.list_of_mks:
-            step_circuit, step_pdf, step_job = self.apply_gate(m_k, self.nbshots)
+            step_pdf, step_circuit, step_job = self.apply_gate(m_k, self.nbshots)
             self.list_of_circuits.append(step_circuit)
             self.list_of_jobs.append(step_job) 
             pdf_list.append(step_pdf)
@@ -346,14 +392,3 @@ class MaximumLikelihoodQPE:
         optimum_theta = optimizer[0] 
         return optimum_theta
 
-
-
-
-
-
-
-
-
-
-
-        

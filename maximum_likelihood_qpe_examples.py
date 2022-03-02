@@ -1,7 +1,7 @@
 """
 This script contains an example of using the implementation of the
-Iterative Quantum Phase Estimation algorithm
-(module iterative_quantum_pe.py)
+Maximum Likelihood Phase Estimation algorithm
+(module: maximum_likelihood_qpe.py)
 
 Author:Gonzalo Ferro Costas
 
@@ -15,53 +15,10 @@ from AuxiliarFunctions import  get_histogram, postprocess_results, test_bins,\
 run_job
 from QuantumMultiplexors_Module_examples import expectation_loading_data
 from PhaseAmplification_Module import load_q_gate
-from iterative_quantum_pe import IterativeQuantumPE
+from  maximum_likelihood_qpe import MaximumLikelihoodQPE, likelihood
 
-def getstaff(InputPDF):
-    """
-    Function to compute some magnitudes from a result from a iqpe.
-    Using the Phi value obtained from iqpae computes angles and Expected
-    values.
-
-    Parameters
-    ----------
-
-    InputPDF : pandas DataFrame
-        Pandas with the results from a complete iqpe solution. The main
-        is the Phi column that stores the angles obtained for phase
-        estimation (angles must be between 0 and 1)
-
-    Returns
-    ----------
-
-    pdf : Pandas DataFrame
-        Input pandas DataFrame with some values added:
-        Theta_Unitary: is the input angle Phi in radians.
-        Theta: is the angle of the rotation for a Groover operator.
-        theta_90: is the angle of rotation for a Groover operator
-        between [0, pi/2]
-        E_p(f): is the expected value for a function f(x) for x following
-        a p(x) distribution probability. Basically sin^2(Theta)
-
-    """
-    pdf = InputPDF.copy(deep=True)
-    #Calculates the eigenvalue for a Unitary Operator
-    pdf['Theta_Unitary'] = 2*np.pi*pdf['Phi']
-    #A Groover operator implements a 2*Theta rotation. So we calcualte Theta
-    pdf['Theta'] = np.pi*pdf['Phi']
-    #Restrict Theta values to [0, pi/2]
-    pdf['theta_90'] = pdf['Theta']
-    pdf['theta_90'].where(
-        pdf['theta_90']< 0.5*np.pi,
-        np.pi-pdf['theta_90'],
-        inplace=True
-    )
-    #Computes the expected value.
-    pdf['E_p(f)'] = np.sin(pdf['Theta'])**2
-    return pdf
-
-
-def Do(n_qbits=6, n_cbits=6, shots=0, QLMASS=True, Save=False):
+def Do(n_qbits=6, shots=0, n_thetas=100, QLMASS=True, Save=False,\
+max_number_ks=10):
     """
     Function for testing purpouses. This function is used when the
     script is executed from command line using arguments.
@@ -112,18 +69,39 @@ def Do(n_qbits=6, n_cbits=6, shots=0, QLMASS=True, Save=False):
     q_gate = load_q_gate(p_gate, r_gate)
     zalo_dict = {
         'qpu' : lineal_qpu,
-        'cbits_number' : n_cbits,
-        'easy': True,
-        'shots': shots
+        'nbshots': shots,
+        'list_of_mks': range(max_number_ks)
     }
-    iqpe = IterativeQuantumPE(q_prog, q_gate, **zalo_dict)
-    iqpe.iqpe()
-    pdf = getstaff(iqpe.results)
-    file_name = 'Results_classIQPE_nqbits_{}_ncbits_{}_shots_{}_QLMASS_{}.csv'\
-    .format(n_qbits, n_cbits, shots, QLMASS)
-    if Save:
-        pdf.to_csv(file_name)
+    ml_qpe = MaximumLikelihoodQPE(q_prog, q_gate, **zalo_dict)
+    ml_qpe.run()
+    print(ml_qpe.pdf_mks)
+    theoric_theta = np.arcsin(sum(f_x*p_x)**0.5)
+    ml_qpe_theta = ml_qpe.theta
+    print('theoric_theta: {}'.format(theoric_theta))
+    print('ml_qpe_theta: {}'.format(ml_qpe_theta))
+    E_f_p = np.sin(ml_qpe_theta)**2
+    lk_ = likelihood(
+        ml_qpe_theta,
+        ml_qpe.pdf_mks['m_k'],
+        ml_qpe.pdf_mks['h_k'],
+        ml_qpe.pdf_mks['n_k']
+    )
+    pdf = pd.DataFrame({
+        'TheoricTheta': [theoric_theta],
+        'Theta' : [ml_qpe_theta],
+        'Likelihood' : [lk_],
+        'E_p(f)': [E_f_p],
+    })
     print(pdf)
+    pdf_like = ml_qpe.launch_likelihood(ml_qpe.pdf_mks, n_thetas)
+    if Save:
+        file_name = 'Thetas_vs_Likelihoods_domain_{}_nqbits_{}_shots_{}_QLMASS_{}.csv'\
+        .format(n_thetas, n_qbits, shots, QLMASS)
+        pdf_like.to_csv(file_name)
+        file_name = 'Results_mks_{}_nqbits_{}_shots_{}_QLMASS_{}.csv'\
+        .format(max_number_ks, n_qbits, shots, QLMASS)
+        ml_qpe.pdf_mks.to_csv(file_name)
+    #print(pdf)
 
 if __name__ == '__main__':
     #Working Example
@@ -136,16 +114,21 @@ if __name__ == '__main__':
         help='Number Of Qbits', default=6
     )
     parser.add_argument(
-        '-c',
-        '--ncbits',
-        type=int,
-        help='Number Of Classical Bits', default=6
-    )
-    parser.add_argument(
         '-s',
         '--shots',
         type=int,
         help='Number Of Shots', default=0
+    )
+    parser.add_argument(
+        '-m_ks',
+        type=int,
+        help='Max Number of Groover-like operator applications', default=5
+    )
+    parser.add_argument(
+        '-nt',
+        '--thetas',
+        type=int,
+        help='Number Of Thetas for plotting likelihood', default=0
     )
     parser.add_argument(
         '--qlmass',
@@ -166,8 +149,9 @@ if __name__ == '__main__':
     #Do(n_qbits=args.nqbits, depth=args.depth, function=args.type)
     Do(
         n_qbits=args.nqbits,
-        n_cbits=args.ncbits,
         shots=args.shots,
+        max_number_ks=args.m_ks,
+        n_thetas=args.thetas,
         QLMASS=args.qlmass,
         Save=args.save
     )
