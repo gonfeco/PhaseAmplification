@@ -241,8 +241,37 @@ def step_iqpe_easy(q_prog, q_gate, q_aux, c_bits, l):
 
 
 class IterativeQuantumPE:
+    """
+    Class for using Iterative Quantum Phase Estimation (IQPE) algorithm
+    """
 
     def __init__(self, q_prog, q_gate, **kwargs):
+        """
+
+        Method for initializing the class
+    
+        Parameters
+        ----------
+        
+        q_prog : QLM quantum program (mandatory)
+            Quantum program where the Groover-like operator will be applied
+        q_gate : QLM gate (mandatory)
+            QLM gate that implements the Groover-like operator
+        kwars : dictionary
+            dictionary that allows the configuration of the ML-QPE algorithm:
+            Implemented keys:
+            cbits_number : int
+                number of classical bits for phase estimation
+            qpu : QLM solver
+                solver for simulating the resulting circutis
+            shots : int
+                number of shots for quantum job. If 0 exact probabilities
+                will be computed.
+            easy : bool
+                If True step_iqpe_easy will be used for each step of the
+                algorithm
+                If False step_iqpe will be used for each step.
+        """
         #Initial Quatum Program. For restarting purpouses
         self.init_q_prog = q_prog
         #Quantum Gate to apply to quantum program
@@ -257,6 +286,9 @@ class IterativeQuantumPE:
         self.easy = kwargs.get('easy', False)
 
     def restart(self):
+        """
+        Reinitialize several properties for restart purpouses
+        """
         self.q_prog = None
         self.q_aux = None
         self.c_bits = None
@@ -279,13 +311,19 @@ class IterativeQuantumPE:
         self.cbits_number_ = value
         #We update the allocate classical bits each time we change cbits_number
 
-    def init_iqpe(self):#, number_of_cbits=None):
+    def init_iqpe(self):
+        """
+        Initialize several properties
+        """
         self.restart()
         self.q_prog = copy.deepcopy(self.init_q_prog)
         self.q_aux = self.q_prog.qalloc(1)
         self.c_bits = self.q_prog.calloc(self.cbits_number)
 
     def apply_iqpe(self):
+        """
+        Apply a complete IQPE algorithm
+        """
         for l in range(len(self.c_bits)):
             if self.easy:
                 step_iqpe_easy(self.q_prog, self.q_gate, self.q_aux, self.c_bits, l)
@@ -293,11 +331,17 @@ class IterativeQuantumPE:
                 step_iqpe(self.q_prog, self.q_gate, self.q_aux, self.c_bits, l)
 
     def get_circuit(self):
+        """
+        Creates the quantum circuti from the q_prog property
+        """
         self.circuit = self.q_prog.to_circ(submatrices_only=True)
         self.meas_gates = [i for i, o in enumerate(self.circuit.ops)\
             if o.type == OpType.MEASURE]
 
     def get_job(self):
+        """
+        Creates the job from the circuit property
+        """
         self.job = self.circuit.to_job(
             qubits=self.q_aux,
             nbshots=self.shots,
@@ -305,11 +349,27 @@ class IterativeQuantumPE:
         )
 
     def get_job_result(self, qpu=None):
+        """
+        Submit a job property to QPU and get the results
+        """
         if qpu is not None:
             self.lineal_qpu = qpu
         self.job_result = run_job(self.lineal_qpu.submit(self.job))
     
     def iqpe(self, number_of_cbits=None, shots=None):
+        """
+        This method apply a workflow for executing a complete IQPE
+        algorithm
+    
+        Parameters
+        ----------
+
+        number_of_cbits : int (overwrite correspondient property)
+            Number of classical bits for storing the phase estimation
+        shots : int (overwrite correspondient property)
+            Number of shots for executing the QLM job
+    
+        """
 
         if number_of_cbits is not None:
             self.cbits_number = number_of_cbits

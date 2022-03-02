@@ -166,6 +166,10 @@ def likelihood(theta, m_k, h_k, n_k):
     return -np.sum(l_k)
 
 class MaximumLikelihoodQPE:
+    """
+    Class for using Maximum Likelihood Quantum Phase Estimation (ML-IQPE)
+    algorithm
+    """
 
     def __init__(self, q_prog, q_gate, **kwargs):
         """
