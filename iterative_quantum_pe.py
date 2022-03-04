@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 from qat.lang.AQASM import H, PH
 from qat.comm.datamodel.ttypes import OpType
-from AuxiliarFunctions import run_job 
+from AuxiliarFunctions import run_job
+from PhaseAmplification_Module import load_qn_gate 
 
 def get_qpu(QLMASS=True):
     """
@@ -174,8 +175,12 @@ def step_iqpe(q_prog, q_gate, q_aux, c_bits, l):
     #qbit over the principal qbits
     unitary_applications = int(2**(m-l-1))
     #print('unitary_applications: {}'.format(unitary_applications))
-    for i in range(unitary_applications):
-        q_prog.apply(q_gate.ctrl(), q_aux, q_bits)
+    step_q_gate = load_qn_gate(q_gate, unitary_applications)
+    q_prog.apply(step_q_gate.ctrl(), q_aux, q_bits)
+
+    #for i in range(unitary_applications):
+    #    q_prog.apply(q_gate.ctrl(), q_aux, q_bits)
+
     for j in range(m-l+1, m+1, 1):
         theta = 2**(m-l-j+1)
         #print('\t j: {}. theta: {}'.format(j-1, theta))
@@ -225,8 +230,11 @@ def step_iqpe_easy(q_prog, q_gate, q_aux, c_bits, l):
     #qbit over the principal qbits
     unitary_applications = int(2**(m-l-1))
     #print('unitary_applications: {}'.format(unitary_applications))
-    for i in range(unitary_applications):
-        q_prog.apply(q_gate.ctrl(), q_aux, q_bits)
+    step_q_gate = load_qn_gate(q_gate, unitary_applications)
+    q_prog.apply(step_q_gate.ctrl(), q_aux, q_bits)
+
+    #for i in range(unitary_applications):
+    #    q_prog.apply(q_gate.ctrl(), q_aux, q_bits)
 
     for j in range(l):
         theta = 1.0/(2**(l-j-1))

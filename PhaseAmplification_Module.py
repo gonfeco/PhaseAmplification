@@ -106,7 +106,7 @@ def load_uphi_gate(gate):
 
 def load_q_gate(pr_gate):
     """
-    Create complete AbstractGate for Amplitude Amplification Algorithm.
+    Create complete AbstractGate for Grover-like algorithm
     The operator to implement is:
         uphi0_gate*u_phi_gate
     This operator implements a y Rotation around the input state:
@@ -142,3 +142,33 @@ def load_q_gate(pr_gate):
         q_rout.apply(u_phi_gate, qbits)
         return q_rout
     return q_gate()
+
+def load_qn_gate(qlm_gate, n):
+    """
+    Create an AbstractGate by applying an input gate n times
+
+    Parameters
+    ----------
+    
+    qlm_gate : QLM gate
+        QLM gate that will be applied n times
+    n : int
+        number of times the qlm_gate will be applied
+
+    """
+    @build_gate("Q^{}".format(n), [], arity=qlm_gate.arity)
+    def q_n_gate():
+        """
+        Function generator for creating an AbstractGate for apply
+        an input gate n times
+        Returns
+        ----------
+        q_rout : quantum routine
+            Routine for applying n times an input gate
+        """
+        q_rout = QRoutine()
+        q_bits = q_rout.new_wires(qlm_gate.arity)
+        for _ in range(n):
+            q_rout.apply(qlm_gate, q_bits)
+        return q_rout
+    return q_n_gate()
