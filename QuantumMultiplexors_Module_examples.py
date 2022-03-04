@@ -10,36 +10,11 @@ in the QuantumMultiplexors_Module
 
 import numpy as np
 from AuxiliarFunctions import postprocess_results, run_job, get_histogram
-from QuantumMultiplexors_Module import load_p_gate, load_r_gate
-from qat.lang.AQASM import Program, H
+from QuantumMultiplexors_Module import load_p_gate, load_r_gate, load_pr_gate
+from qat.lang.AQASM import Program, H, QRoutine
 from qat.core.console import display
 
-def load_probability_program(p_x):
-    """
-    Creates a Quantum Program for loading an input numpy array with a
-    probability distribution with Quantum Multiplexors (QM).
-
-    Parameters
-    ----------
-
-    p_x : numpy array
-        Probability distribution of size m. Mandatory: m=2^n where n
-        is the number qbits of the quantum circuit.
-
-    Returns
-    ----------
-    q_prog: QLM Program.
-        Quantum Program for loading input probability using QM
-    p_gate: QLM AbstractGate
-        Customized AbstractGate for loading input probability using QM
-    """
-    p_gate = load_p_gate(p_x)
-    q_prog = Program()
-    qbits = q_prog.qalloc(p_gate.arity)
-    q_prog.apply(p_gate, qbits)
-    return q_prog, p_gate
-
-def load_integral_program(f_x):
+def load_integral_routine(r_gate):
     """
     Creates a Quantum Program for loading the integral of an input
     function given as a numpy array using Quantum Multiplexors (QM).
@@ -47,9 +22,8 @@ def load_integral_program(f_x):
     Parameters
     ----------
 
-    f_x : numpy array
-        Function evaluation of size m. Mandatory: m=2^n where n is the
-        number qbits of the quantum circuit.
+    r_gate : QLM AbstractGate
+        Customized AbstractGatel for loading integral of a function f(x)
 
     Returns
     ----------
@@ -58,52 +32,123 @@ def load_integral_program(f_x):
     r_gate: QLM AbstractGate
         Customized AbstractGate for loading integral using QM
     """
-    r_gate = load_r_gate(f_x)
-    q_prog = Program()
-    qbits = q_prog.qalloc(r_gate.arity)
+    q_rout = QRoutine()
+    qbits = q_rout.new_wires(r_gate.arity)
+    #equiprobable superposition of states
     for i in range(len(qbits)-1):
-        q_prog.apply(H, qbits[i])
-    q_prog.apply(r_gate, qbits)
-    return q_prog, r_gate
+        q_rout.apply(H, qbits[i])
+    q_rout.apply(r_gate, qbits)
+    return q_rout
 
-def expectation_loading_data(p_x, f_x):
+def create_qprogram(quantum_gate):
     """
-    Creates a Quantum Program for loading mandatory data in order to
-    load the expected value of a function f(x) over a x following a
-    probability distribution p(x) using Quantum Multiplexors (QM).
+    Creates a Quantum Program from an input qlm gate or routine
 
     Parameters
     ----------
 
-    p_x : numpy array
-        Probability distribution of size m. Mandatory: m=2^n where n
-        is the number qbits of the quantum circuit.
-    f_x : numpy array
-        Function evaluation of size m. Mandatory: m=2^n where n is the
-        number qbits of the quantum circuit.
+    quantum_gate : QLM gate or QLM routine
 
     Returns
     ----------
     q_prog: QLM Program.
-        Quantum Program for loading input probability
-    p_gate: QLM AbstractGate
-        Customized AbstractGate for loading input probability using QM
-    r_gate: QLM AbstractGate
-        Customized AbstractGate for loading integral using QM
+        Quantum Program from input QLM gate or routine
     """
-
-    #Testing input
-    assert len(p_x) == len(f_x), 'Arrays lenght are not equal!!'
-    p_gate = load_p_gate(p_x)
-    r_gate = load_r_gate(f_x)
     q_prog = Program()
-    #The R gate have more qbits
-    qbits = q_prog.qalloc(r_gate.arity)
-    #Load Probability
-    q_prog.apply(p_gate, qbits[:-1])
-    #Load integral on the last qbit
-    q_prog.apply(r_gate, qbits)
-    return q_prog, p_gate, r_gate
+    qbits = q_prog.qalloc(quantum_gate.arity)
+    q_prog.apply(quantum_gate, qbits)
+    return q_prog
+
+#def load_probability_program(p_x):
+#    """
+#    Creates a Quantum Program for loading an input numpy array with a
+#    probability distribution with Quantum Multiplexors (QM).
+#
+#    Parameters
+#    ----------
+#
+#    p_x : numpy array
+#        Probability distribution of size m. Mandatory: m=2^n where n
+#        is the number qbits of the quantum circuit.
+#
+#    Returns
+#    ----------
+#    q_prog: QLM Program.
+#        Quantum Program for loading input probability using QM
+#    p_gate: QLM AbstractGate
+#        Customized AbstractGate for loading input probability using QM
+#    """
+#    p_gate = load_p_gate(p_x)
+#    q_prog = Program()
+#    qbits = q_prog.qalloc(p_gate.arity)
+#    q_prog.apply(p_gate, qbits)
+#    return q_prog, p_gate
+#
+#def load_integral_program(f_x):
+#    """
+#    Creates a Quantum Program for loading the integral of an input
+#    function given as a numpy array using Quantum Multiplexors (QM).
+#
+#    Parameters
+#    ----------
+#
+#    f_x : numpy array
+#        Function evaluation of size m. Mandatory: m=2^n where n is the
+#        number qbits of the quantum circuit.
+#
+#    Returns
+#    ----------
+#    q_prog: QLM Program
+#        Quantum Program for loading integral of the input function
+#    r_gate: QLM AbstractGate
+#        Customized AbstractGate for loading integral using QM
+#    """
+#    r_gate = load_r_gate(f_x)
+#    q_prog = Program()
+#    qbits = q_prog.qalloc(r_gate.arity)
+#    for i in range(len(qbits)-1):
+#        q_prog.apply(H, qbits[i])
+#    q_prog.apply(r_gate, qbits)
+#    return q_prog, r_gate
+#
+#def expectation_loading_data(p_x, f_x):
+#    """
+#    Creates a Quantum Program for loading mandatory data in order to
+#    load the expected value of a function f(x) over a x following a
+#    probability distribution p(x) using Quantum Multiplexors (QM).
+#
+#    Parameters
+#    ----------
+#
+#    p_x : numpy array
+#        Probability distribution of size m. Mandatory: m=2^n where n
+#        is the number qbits of the quantum circuit.
+#    f_x : numpy array
+#        Function evaluation of size m. Mandatory: m=2^n where n is the
+#        number qbits of the quantum circuit.
+#
+#    Returns
+#    ----------
+#    q_prog: QLM Program.
+#        Quantum Program for loading input probability
+#    p_gate: QLM AbstractGate
+#        Customized AbstractGate for loading input probability using QM
+#    r_gate: QLM AbstractGate
+#        Customized AbstractGate for loading integral using QM
+#    """
+#
+#    #Testing input
+#    assert len(p_x) == len(f_x), 'Arrays lenght are not equal!!'
+#    p_gate = load_p_gate(p_x)
+#    r_gate = load_r_gate(f_x)
+#    q_prog = Program()
+#    #The R gate have more qbits
+#    qbits = q_prog.qalloc(r_gate.arity)
+#    #Load Probability
+#    q_prog.apply(p_gate, qbits[:-1])
+#    #Load integral on the last qbit
+#    q_prog.apply(r_gate, qbits)
+#    return q_prog, p_gate, r_gate
 
 
 def Do(n_qbits=6, depth=0, function='DataLoading', QLMASS=True):
@@ -164,13 +209,19 @@ def Do(n_qbits=6, depth=0, function='DataLoading', QLMASS=True):
     print('Creating Program')
     if function == 'P':
         print('\t Load Probability')
-        qprog, _ = load_probability_program(p_x)
+        p_gate = load_p_gate(p_x)
+        qprog = create_qprogram(p_gate)
     elif function == 'R':
         print('\t Load Integral')
-        qprog, _ = load_integral_program(f_x)
+        r_gate = load_r_gate(f_x)
+        qprog = create_qprogram(load_integral_routine(r_gate))
+
     else:
         print('\t Load Complete Data')
-        qprog, _, _ = expectation_loading_data(p_x, f_x)
+        p_gate = load_p_gate(p_x)
+        r_gate = load_r_gate(f_x)
+        pr_gate = load_pr_gate(p_gate, r_gate)
+        qprog = create_qprogram(pr_gate)
 
     print('Making Circuit')
     circuit = qprog.to_circ(submatrices_only=True)

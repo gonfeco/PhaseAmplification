@@ -1,6 +1,13 @@
 """
+Copyright 2022 CESGA
+License: Open Whatever
+
+This project has received funding from the European Union’s Horizon 2020
+research and innovation programme under Grant Agreement No. 951821
+https://www.neasqc.eu/
+
 This module contains necesary functions and classes to implement
-Maximu Likelihood Amplitude Estimation based on the papper:
+Maximum Likelihood Amplitude Estimation based on the paper:
 
     Suzuki, Y., Uno, S., Raymond, R., Tanaka, T., Onodera, T., & Yamamoto, N.
     Amplitude estimation without phase estimation

@@ -290,3 +290,38 @@ def load_r_gate(function_array):
         qrout.apply(crbs_gate, reg[:crbs_gate.arity])
         return qrout
     return r_gate_qm()
+
+def load_pr_gate(p_gate, r_gate):
+    """
+    Create complete AbstractGate for applying Operators P and R
+    The operator to implement is:
+        p_gate*r_gate
+
+    Parameters
+    ----------
+    p_gate : QLM AbstractGate
+        Customized AbstractGate for loading probability distribution.
+    r_gate : QLM AbstractGate
+        Customized AbstractGatel for loading integral of a function f(x)
+    Returns
+    ----------
+    PR_Gate : AbstractGate
+        Customized AbstractGate for loading the P and R operators
+    """
+    nqbits = r_gate.arity
+    @build_gate("PR_Gate", [], arity=nqbits)
+    def pr_gate():
+        """
+        Function generator for creating an AbstractGate for implementation
+        of the Amplification Amplitude Algorithm (Q)
+        Returns
+        ----------
+        q_rout : quantum routine
+            Routine for Amplitude Amplification Algorithm
+        """
+        q_rout = QRoutine()
+        qbits = q_rout.new_wires(nqbits)
+        q_rout.apply(p_gate, qbits[:-1])
+        q_rout.apply(r_gate, qbits)
+        return q_rout
+    return pr_gate()
