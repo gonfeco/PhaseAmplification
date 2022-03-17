@@ -264,7 +264,7 @@ def load_p_gate(probability_array):
         return qrout
     return p_gate_qm()
 
-def load_r_gate(function_array):
+def load_f_gate(function_array):
     """
     Creates a customized AbstractGate for loading the integral of a
     discretized function in a Quantum State using Quantum Multiplexors.
@@ -280,7 +280,7 @@ def load_r_gate(function_array):
         if len(function_array) != 2^n
     Returns
     ----------
-    R_Gate: AbstractGate
+    F_Gate: AbstractGate
         AbstractGate customized for loading the integral of the function
         using Quantum Multiplexors
     """
@@ -296,8 +296,8 @@ def load_r_gate(function_array):
     #Calculation of the rotation angles
     thetas = 2.0*np.arcsin(np.sqrt(function_array))
 
-    @build_gate("R_Gate", [], arity=nqbits+1)
-    def r_gate_qm():
+    @build_gate("F_Gate", [], arity=nqbits+1)
+    def f_gate_qm():
         """
         Function generator for creating an AbstractGate that allows
         the loading of the integral of a given discretized function
@@ -317,9 +317,9 @@ def load_r_gate(function_array):
         crbs_gate = load_crbs_gate(thetas)
         qrout.apply(crbs_gate, reg[:crbs_gate.arity])
         return qrout
-    return r_gate_qm()
+    return f_gate_qm()
 
-def load_pr_gate(p_gate, r_gate):
+def load_pf_gate(p_gate, f_gate):
     """
     Create complete AbstractGate for applying Operators P and R
     The operator to implement is:
@@ -329,16 +329,16 @@ def load_pr_gate(p_gate, r_gate):
     ----------
     p_gate : QLM AbstractGate
         Customized AbstractGate for loading probability distribution.
-    r_gate : QLM AbstractGate
+    f_gate : QLM AbstractGate
         Customized AbstractGatel for loading integral of a function f(x)
     Returns
     ----------
-    PR_Gate : AbstractGate
+    PF_Gate : AbstractGate
         Customized AbstractGate for loading the P and R operators
     """
-    nqbits = r_gate.arity
-    @build_gate("PR_Gate", [], arity=nqbits)
-    def pr_gate():
+    nqbits = f_gate.arity
+    @build_gate("PF_Gate", [], arity=nqbits)
+    def pf_gate():
         """
         Function generator for creating an AbstractGate for implementation
         of the Amplification Amplitude Algorithm (Q)
@@ -350,6 +350,6 @@ def load_pr_gate(p_gate, r_gate):
         q_rout = QRoutine()
         qbits = q_rout.new_wires(nqbits)
         q_rout.apply(p_gate, qbits[:-1])
-        q_rout.apply(r_gate, qbits)
+        q_rout.apply(f_gate, qbits)
         return q_rout
-    return pr_gate()
+    return pf_gate()

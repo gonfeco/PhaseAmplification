@@ -9,168 +9,51 @@ in the QuantumMultiplexors_Module
 """
 
 import numpy as np
-from AuxiliarFunctions import postprocess_results, run_job, get_histogram
-from QuantumMultiplexors_Module import load_p_gate, load_r_gate, load_pr_gate
-from qat.lang.AQASM import Program, H, QRoutine
 from qat.core.console import display
+import qat.lang.AQASM as qlm
+from qat.qpus import PyLinalg
+global_qlmaas = True
+try:
+    from qlmaas.qpus import LinAlg
+except (ImportError, OSError) as exception:
+    global_qlmaas = False
 
-def create_qprogram(quantum_gate):
+from QuantumMultiplexors_Module import load_p_gate, load_f_gate, load_pf_gate
+from AuxiliarFunctions import get_histogram
+from data_extracting import get_results
+
+def get_qpu(qlmass=False):
     """
-    Creates a Quantum Program from an input qlm gate or routine
+    Function for selecting solver. User can chose between:
+    * LinAlg: for submitting jobs to a QLM server
+    * PyLinalg: for simulating jobs using myqlm lineal algebra.
 
     Parameters
     ----------
 
-    quantum_gate : QLM gate or QLM routine
+    qlmass : bool
+        If True  try to use QLM as a Service connection to CESGA QLM
+        If False PyLinalg simulator will be used
 
     Returns
     ----------
-    q_prog: QLM Program.
-        Quantum Program from input QLM gate or routine
+    
+    lineal_qpu : solver for quantum jobs
     """
-    q_prog = Program()
-    qbits = q_prog.qalloc(quantum_gate.arity)
-    q_prog.apply(quantum_gate, qbits)
-    return q_prog
-
-def load_integral_routine(r_gate):
-    """
-    Creates a Quantum Program for loading the integral of an input
-    function given as a numpy array using Quantum Multiplexors (QM).
-
-    Parameters
-    ----------
-
-    r_gate : QLM AbstractGate
-        Customized AbstractGatel for loading integral of a function f(x)
-
-    Returns
-    ----------
-    q_prog: QLM Program
-        Quantum Program for loading integral of the input function
-    r_gate: QLM AbstractGate
-        Customized AbstractGate for loading integral using QM
-    """
-    q_rout = QRoutine()
-    qbits = q_rout.new_wires(r_gate.arity)
-    #equiprobable superposition of states
-    for i in range(len(qbits)-1):
-        q_rout.apply(H, qbits[i])
-    q_rout.apply(r_gate, qbits)
-    return q_rout
-
-def create_qprogram(quantum_gate):
-    """
-    Creates a Quantum Program from an input qlm gate or routine
-
-    Parameters
-    ----------
-
-    quantum_gate : QLM gate or QLM routine
-
-    Returns
-    ----------
-    q_prog: QLM Program.
-        Quantum Program from input QLM gate or routine
-    """
-    q_prog = Program()
-    qbits = q_prog.qalloc(quantum_gate.arity)
-    q_prog.apply(quantum_gate, qbits)
-    return q_prog
-
-#def load_probability_program(p_x):
-#    """
-#    Creates a Quantum Program for loading an input numpy array with a
-#    probability distribution with Quantum Multiplexors (QM).
-#
-#    Parameters
-#    ----------
-#
-#    p_x : numpy array
-#        Probability distribution of size m. Mandatory: m=2^n where n
-#        is the number qbits of the quantum circuit.
-#
-#    Returns
-#    ----------
-#    q_prog: QLM Program.
-#        Quantum Program for loading input probability using QM
-#    p_gate: QLM AbstractGate
-#        Customized AbstractGate for loading input probability using QM
-#    """
-#    p_gate = load_p_gate(p_x)
-#    q_prog = Program()
-#    qbits = q_prog.qalloc(p_gate.arity)
-#    q_prog.apply(p_gate, qbits)
-#    return q_prog, p_gate
-#
-#def load_integral_program(f_x):
-#    """
-#    Creates a Quantum Program for loading the integral of an input
-#    function given as a numpy array using Quantum Multiplexors (QM).
-#
-#    Parameters
-#    ----------
-#
-#    f_x : numpy array
-#        Function evaluation of size m. Mandatory: m=2^n where n is the
-#        number qbits of the quantum circuit.
-#
-#    Returns
-#    ----------
-#    q_prog: QLM Program
-#        Quantum Program for loading integral of the input function
-#    r_gate: QLM AbstractGate
-#        Customized AbstractGate for loading integral using QM
-#    """
-#    r_gate = load_r_gate(f_x)
-#    q_prog = Program()
-#    qbits = q_prog.qalloc(r_gate.arity)
-#    for i in range(len(qbits)-1):
-#        q_prog.apply(H, qbits[i])
-#    q_prog.apply(r_gate, qbits)
-#    return q_prog, r_gate
-#
-#def expectation_loading_data(p_x, f_x):
-#    """
-#    Creates a Quantum Program for loading mandatory data in order to
-#    load the expected value of a function f(x) over a x following a
-#    probability distribution p(x) using Quantum Multiplexors (QM).
-#
-#    Parameters
-#    ----------
-#
-#    p_x : numpy array
-#        Probability distribution of size m. Mandatory: m=2^n where n
-#        is the number qbits of the quantum circuit.
-#    f_x : numpy array
-#        Function evaluation of size m. Mandatory: m=2^n where n is the
-#        number qbits of the quantum circuit.
-#
-#    Returns
-#    ----------
-#    q_prog: QLM Program.
-#        Quantum Program for loading input probability
-#    p_gate: QLM AbstractGate
-#        Customized AbstractGate for loading input probability using QM
-#    r_gate: QLM AbstractGate
-#        Customized AbstractGate for loading integral using QM
-#    """
-#
-#    #Testing input
-#    assert len(p_x) == len(f_x), 'Arrays lenght are not equal!!'
-#    p_gate = load_p_gate(p_x)
-#    r_gate = load_r_gate(f_x)
-#    q_prog = Program()
-#    #The R gate have more qbits
-#    qbits = q_prog.qalloc(r_gate.arity)
-#    #Load Probability
-#    q_prog.apply(p_gate, qbits[:-1])
-#    #Load integral on the last qbit
-#    q_prog.apply(r_gate, qbits)
-#    return q_prog, p_gate, r_gate
+    if qlmass:
+        if global_qlmaas:
+            print('Using: LinAlg')
+            linalg_qpu = LinAlg()
+        else:
+            raise ImportError("""Problem Using QLMaaS.
+            Please create config file or use mylm solver""")
+    else:
+        print('Using PyLinalg')
+        linalg_qpu = PyLinalg()
+    return linalg_qpu
 
 
-def Do(n_qbits=6, depth=0, function='DataLoading', QLMASS=True):
+def Do(n_qbits=6, depth=0, function='DataLoading', qlmass=True):
     """
     Function for testing purpouses. This function is used when the
     script is executed from command line using arguments. It executes
@@ -205,59 +88,54 @@ def Do(n_qbits=6, depth=0, function='DataLoading', QLMASS=True):
     upper_limit = 1.0
     x, p_x = get_histogram(p, lower_limit, upper_limit, m_bins)
     f_x = f(x)
-    print('########################################')
-    print('#########Connection to QLMaSS###########')
-    print('########################################')
 
-    #QPU connection
-    if QLMASS:
-        try:
-            from qat.qlmaas import QLMaaSConnection
-            connection = QLMaaSConnection()
-            lin_alg = connection.get_qpu("qat.qpus:LinAlg")
-            lineal_qpu = lin_alg()
-        except (ImportError, OSError) as e:
-            print('Problem: usin PyLinalg')
-            from qat.qpus import PyLinalg
-            lineal_qpu = PyLinalg()
-    else:
-        print('User Forces: PyLinalg')
-        from qat.qpus import PyLinalg
-        lineal_qpu = PyLinalg()
+    linalg_qpu = get_qpu(qlmass)
 
     print('Creating Program')
     if function == 'P':
         print('\t Load Probability')
-        p_gate = load_p_gate(p_x)
-        qprog = create_qprogram(p_gate)
-    elif function == 'R':
+        p_gate =load_p_gate (p_x)
+        results, circuit, q_p, job = get_results(
+            p_gate,
+            linalg_qpu=linalg_qpu,
+            shots=0,
+            qubits=list(range(p_gate.arity))
+        )
+    elif function == 'F':
         print('\t Load Integral')
-        r_gate = load_r_gate(f_x)
-        qprog = create_qprogram(load_integral_routine(r_gate))
-
+        f_gate = load_f_gate(f_x)
+        q_rout = qlm.QRoutine()
+        q_bit = q_rout.new_wires(f_gate.arity)
+        for i in range(f_gate.arity-1):
+            q_rout.apply(qlm.H, q_bit[i])
+        q_rout.apply(f_gate, q_bit)
+        results, circuit, q_p, job = get_results(
+            q_rout,
+            linalg_qpu=linalg_qpu,
+            shots=0,
+            qubits=[f_gate.arity-1]
+        )
     else:
-        print('\t Load Complete Data')
+        print('\t Load Data for Expected Value of function')
         p_gate = load_p_gate(p_x)
-        r_gate = load_r_gate(f_x)
-        pr_gate = load_pr_gate(p_gate, r_gate)
-        qprog = create_qprogram(pr_gate)
+        f_gate = load_f_gate(f_x)
+        pf_gate = load_pf_gate(p_gate, f_gate)
+        results, circuit, q_p, job = get_results(
+            pf_gate,
+            linalg_qpu=linalg_qpu,
+            shots=0,
+            qubits=[pf_gate.arity-1]
+        )
 
-    print('Making Circuit')
-    circuit = qprog.to_circ(submatrices_only=True)
     display(circuit, max_depth=depth)
-    if function == 'P':
-        job = circuit.to_job()
-    else:
-        job = circuit.to_job(qubits=[n_qbits])
-    result = run_job(lineal_qpu.submit(job))
-    results = postprocess_results(result)
     print(results)
+
     if function == 'P':
         condition = np.isclose(results['Probability'], p_x).all()
         print('Probability load data: \n {}'.format(p_x))
         print('Probability Measurements: \n {}'.format(results['Probability']))
         print('This is correct? {}'.format(condition))
-    elif function == 'R':
+    elif function == 'F':
         integral_measurement = results['Probability'][1]*2**(n_qbits)
         print('Integral load data: {}'.format(sum(f_x)))
         print('Integral Measurement: {}'.format(integral_measurement))
@@ -309,7 +187,7 @@ if __name__ == '__main__':
         n_qbits=args.nqbits,
         depth=args.depth,
         function=args.type,
-        QLMASS=args.qlmass
+        qlmass=args.qlmass
     )
 
 
