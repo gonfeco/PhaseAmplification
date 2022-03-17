@@ -19,6 +19,34 @@ import numpy as np
 from qat.lang.AQASM import QRoutine, RY, CNOT, build_gate
 from AuxiliarFunctions import test_bins, left_conditional_probability
 
+def expectation_loading_data(p_x, f_x):
+    """
+    This function is a wraper around load_pr_gate. Arrays with probability
+    and function is provided to the function that returns the AbstractGate
+    for loading the input data
+
+    Parameters
+    ----------
+
+    p_x : numpy array
+        Probability distribution of size m. Mandatory: m=2^n where n
+        is the number qbits of the quantum circuit.
+    f_x : numpy array
+        Function evaluation of size m. Mandatory: m=2^n where n is the
+        number qbits of the quantum circuit.
+
+    Returns
+    ----------
+    pr_gate: QLM AbstractGate
+        Customized AbstractGate for loading input arrays using QM
+    """
+
+    #Testing input
+    assert len(p_x) == len(f_x), 'Arrays lenght are not equal!!'
+    p_gate = load_p_gate(p_x)
+    r_gate = load_r_gate(f_x)
+    pr_gate = load_pr_gate(p_gate, r_gate)
+    return pr_gate
 
 def multiplexor_ry_m_recurs(qprog, qbits, thetas, r_controls, i_target, sig=1.0):
     """
@@ -290,3 +318,38 @@ def load_r_gate(function_array):
         qrout.apply(crbs_gate, reg[:crbs_gate.arity])
         return qrout
     return r_gate_qm()
+
+def load_pr_gate(p_gate, r_gate):
+    """
+    Create complete AbstractGate for applying Operators P and R
+    The operator to implement is:
+        p_gate*r_gate
+
+    Parameters
+    ----------
+    p_gate : QLM AbstractGate
+        Customized AbstractGate for loading probability distribution.
+    r_gate : QLM AbstractGate
+        Customized AbstractGatel for loading integral of a function f(x)
+    Returns
+    ----------
+    PR_Gate : AbstractGate
+        Customized AbstractGate for loading the P and R operators
+    """
+    nqbits = r_gate.arity
+    @build_gate("PR_Gate", [], arity=nqbits)
+    def pr_gate():
+        """
+        Function generator for creating an AbstractGate for implementation
+        of the Amplification Amplitude Algorithm (Q)
+        Returns
+        ----------
+        q_rout : quantum routine
+            Routine for Amplitude Amplification Algorithm
+        """
+        q_rout = QRoutine()
+        qbits = q_rout.new_wires(nqbits)
+        q_rout.apply(p_gate, qbits[:-1])
+        q_rout.apply(r_gate, qbits)
+        return q_rout
+    return pr_gate()

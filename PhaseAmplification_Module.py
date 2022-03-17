@@ -66,25 +66,23 @@ def d0_gate(nqbits):
         q_rout.apply(X, qbits[i])
     return q_rout
 
-def load_uphi_gate(p_gate, r_gate):
+def load_uphi_gate(gate):
     """
-    Create gate U_Phi mandatory for Phase Amplification Algorithm.
+    Create gate U_Phi (Grover Difusor operator) mandatory for using
+    Grover Alogrithm.
     The operator to implement is:
-        I-2|Phi_{n-1}><Phi_{n-1}|.
-    Where the state |Phi_{n-1}> is: |Phi_{n-1}>=R*P*|0_{n+1}>.
-    Where R and P are the gates to load the integral of a function
-    f(x) and  the load of a distribution probabilitiy p(x) respectively.
+        I-2|Phi><Phi|.
+    Where the state |Phi> is: |Phi>=Ô*|0>.
+    Where Ô operator is represented by the input gate
     Parameters
     ----------
-    p_gate : QLM AbstractGate
-        Customized AbstractGate for loading probability distribution.
-    r_gate : QLM AbstractGate
-        Customized AbstractGatel for loading integral of a function f(x)
+    gate : QLM Gate
+        QLM Gate for creating diffusion Operator
     Outputs:
-        * U_Phi: guantum gate that implements U_Phi gate
+        * U_Phi: guantum gate that implements U_Phi gate (diffusor operator)
     """
     #The arity of the r_gate fix the number of qbits for the routine
-    nqbits = r_gate.arity
+    nqbits = gate.arity
 
     @build_gate("UPhi", [], arity=nqbits)
     def u_phi_gate():
@@ -99,18 +97,16 @@ def load_uphi_gate(p_gate, r_gate):
         """
         q_rout = QRoutine()
         qbits = q_rout.new_wires(nqbits)
-        q_rout.apply(r_gate.dag(), qbits)
-        q_rout.apply(p_gate.dag(), qbits[:-1])
+        q_rout.apply(gate.dag(), qbits)
         d_0 = d0_gate(nqbits)
         q_rout.apply(d_0, qbits)
-        q_rout.apply(p_gate, qbits[:-1])
-        q_rout.apply(r_gate, qbits)
+        q_rout.apply(gate, qbits)
         return q_rout
     return u_phi_gate()
 
-def load_q_gate(p_gate, r_gate):
+def load_q_gate(pr_gate):
     """
-    Create complete AbstractGate for Amplitude Amplification Algorithm.
+    Create complete AbstractGate for Grover-like algorithm
     The operator to implement is:
         uphi0_gate*u_phi_gate
     This operator implements a y Rotation around the input state:
@@ -121,16 +117,14 @@ def load_q_gate(p_gate, r_gate):
         sin(Theta) = sqrt(Expected_p(x)[f(x)])
     Parameters
     ----------
-    p_gate : QLM AbstractGate
-        Customized AbstractGate for loading probability distribution.
-    r_gate : QLM AbstractGate
-        Customized AbstractGatel for loading integral of a function f(x)
+    pr_gate : QLM AbstractGate
+        QLM Gate for creating Grover-like operator Q
     Returns
     ----------
     Q_Gate : AbstractGate
         Customized AbstractGate for Amplitude Amplification Algorithm
     """
-    nqbits = r_gate.arity
+    nqbits = pr_gate.arity
     @build_gate("Q_Gate", [], arity=nqbits)
     def q_gate():
         """
@@ -144,7 +138,37 @@ def load_q_gate(p_gate, r_gate):
         q_rout = QRoutine()
         qbits = q_rout.new_wires(nqbits)
         q_rout.apply(uphi0_gate(nqbits), qbits)
-        u_phi_gate = load_uphi_gate(p_gate, r_gate)
+        u_phi_gate = load_uphi_gate(pr_gate)
         q_rout.apply(u_phi_gate, qbits)
         return q_rout
     return q_gate()
+
+def load_qn_gate(qlm_gate, n):
+    """
+    Create an AbstractGate by applying an input gate n times
+
+    Parameters
+    ----------
+    
+    qlm_gate : QLM gate
+        QLM gate that will be applied n times
+    n : int
+        number of times the qlm_gate will be applied
+
+    """
+    @build_gate("Q^{}".format(n), [], arity=qlm_gate.arity)
+    def q_n_gate():
+        """
+        Function generator for creating an AbstractGate for apply
+        an input gate n times
+        Returns
+        ----------
+        q_rout : quantum routine
+            Routine for applying n times an input gate
+        """
+        q_rout = QRoutine()
+        q_bits = q_rout.new_wires(qlm_gate.arity)
+        for _ in range(n):
+            q_rout.apply(qlm_gate, q_bits)
+        return q_rout
+    return q_n_gate()

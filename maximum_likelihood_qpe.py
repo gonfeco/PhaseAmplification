@@ -1,6 +1,13 @@
 """
+Copyright 2022 CESGA
+License: Open Whatever
+
+This project has received funding from the European Union’s Horizon 2020
+research and innovation programme under Grant Agreement No. 951821
+https://www.neasqc.eu/
+
 This module contains necesary functions and classes to implement
-Maximu Likelihood Amplitude Estimation based on the papper:
+Maximum Likelihood Amplitude Estimation based on the paper:
 
     Suzuki, Y., Uno, S., Raymond, R., Tanaka, T., Onodera, T., & Yamamoto, N.
     Amplitude estimation without phase estimation
@@ -18,6 +25,7 @@ import pandas as pd
 import scipy.optimize as so
 
 from AuxiliarFunctions import run_job, postprocess_results
+from PhaseAmplification_Module import load_qn_gate 
 
 def get_qpu(QLMASS=True):
     """
@@ -83,8 +91,10 @@ def apply_gate(q_prog, q_gate, m_k, lineal_qpu, nbshots=0):
     """
     prog_q = copy.deepcopy(q_prog)
     q_bits = prog_q.registers[0]
-    for _ in range(m_k):
-        prog_q.apply(q_gate, q_bits)
+    #for _ in range(m_k):
+    #    prog_q.apply(q_gate, q_bits)
+    step_q_gate = load_qn_gate(q_gate, m_k)
+    prog_q.apply(step_q_gate, q_bits)
     circuit = prog_q.to_circ(submatrices_only=True)
     job = circuit.to_job(qubits=[len(q_bits)-1], nbshots=nbshots)
     result = run_job(lineal_qpu.submit(job))
