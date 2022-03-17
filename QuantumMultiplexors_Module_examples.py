@@ -14,6 +14,25 @@ from QuantumMultiplexors_Module import load_p_gate, load_r_gate, load_pr_gate
 from qat.lang.AQASM import Program, H, QRoutine
 from qat.core.console import display
 
+def create_qprogram(quantum_gate):
+    """
+    Creates a Quantum Program from an input qlm gate or routine
+
+    Parameters
+    ----------
+
+    quantum_gate : QLM gate or QLM routine
+
+    Returns
+    ----------
+    q_prog: QLM Program.
+        Quantum Program from input QLM gate or routine
+    """
+    q_prog = Program()
+    qbits = q_prog.qalloc(quantum_gate.arity)
+    q_prog.apply(quantum_gate, qbits)
+    return q_prog
+
 def load_integral_routine(r_gate):
     """
     Creates a Quantum Program for loading the integral of an input
