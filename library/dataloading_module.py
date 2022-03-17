@@ -96,7 +96,7 @@ def load_p_gate(probability_array):
 
     n_qbits = test_bins(probability_array, 'Probability')
 
-    @build_gate("P_Gate", [], arity=n_qbits)
+    @build_gate("P", [], arity=n_qbits)
     def p_gate():
         """
         Function generator for the AbstractGate that allows the loading
@@ -130,7 +130,7 @@ def load_p_gate(probability_array):
         return q_rout
     return p_gate()
 
-def load_r_gate(function_array):
+def load_f_gate(function_array):
     """
     Creates a customized AbstractGate for loading the integral of a
     discretized function in a Quantum State.
@@ -151,7 +151,7 @@ def load_r_gate(function_array):
     Returns
     ----------
 
-    R_Gate: AbstractGate
+    F_Gate: AbstractGate
         AbstractGate customized for loadin the integral of the function.
     """
 
@@ -159,8 +159,8 @@ def load_r_gate(function_array):
     #Calculation of the rotation angles
     thetas_list = 2.0*np.arcsin(np.sqrt(function_array))
 
-    @build_gate("R_Gate", [], arity=nqbits_+1)
-    def r_gate():
+    @build_gate("F", [], arity=nqbits_+1)
+    def f_gate():
         """
         Function generator for creating an AbstractGate that allows
         the loading of the integral of a given discretized function
@@ -184,4 +184,34 @@ def load_r_gate(function_array):
             q_rout.apply(crbs_gate(nqbits_, i, thetas_list[i]), qbits)
         return q_rout
 
-    return r_gate()
+    return f_gate()
+
+def load_pf(p_gate, f_gate):
+    """
+    Create complete AbstractGate for applying Operators P and R
+    The operator to implement is:
+        p_gate*r_gate
+
+    Parameters
+    ----------
+    p_gate : QLM AbstractGate
+        Customized AbstractGate for loading probability distribution.
+    f_gate : QLM AbstractGate
+        Customized AbstractGatel for loading integral of a function f(x)
+    Returns
+    ----------
+    pr_gate : AbstractGate
+        Customized AbstractGate for loading the P and R operators
+    """
+    nqbits = f_gate.arity
+    @build_gate("PF", [], arity=nqbits)
+    def load_pf_gate():
+        """
+        QLM Routine generation.
+        """
+        q_rout = QRoutine()
+        qbits = q_rout.new_wires(nqbits)
+        q_rout.apply(p_gate, qbits[:-1])
+        q_rout.apply(f_gate, qbits)
+        return q_rout
+    return load_pf_gate()
