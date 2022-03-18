@@ -1,53 +1,68 @@
 """
+This project has received funding from the European Union’s Horizon 2020
+research and innovation programme under Grant Agreement No. 951821
+https://www.neasqc.eu/
+
 This module contains necesary functions and classes to implement
-Iterative Quantum Phase Estimation (IQPE)
+Iterative Quantum Phase Estimation (IQPE). The implementation is based on
+following paper:
+
+    Dobšíček, Miroslav and Johansson, Göran and Shumeiko, Vitaly and
+    Wendin, Göran*.
+    Arbitrary accuracy iterative quantum phase estimation algorithm
+    using a single ancillary qubit: A two-qubit benchmark.
+    Physical Review A 3(76), 2007.
+    https://arxiv.org/abs/quant-ph/0610214
 
 Author:Gonzalo Ferro Costas
-
-MyQLM version:
 
 """
 import copy
 import numpy as np
 import pandas as pd
-from qat.lang.AQASM import H, PH
+import qat.lang.AQASM as qlm
 from qat.comm.datamodel.ttypes import OpType
-from AuxiliarFunctions import run_job
-from PhaseAmplification_Module import load_qn_gate 
+from qat.qpus import PyLinalg
 
-def get_qpu(QLMASS=True):
+from data_extracting import create_qprogram, create_circuit, create_job, run_job
+from amplitude_amplification import load_qn_gate, load_q_gate
+
+global_qlmaas = True
+try:
+    from qlmaas.qpus import LinAlg
+except (ImportError, OSError) as exception:
+    global_qlmaas = False
+
+def get_qpu(qlmass=False):
     """
-    Function for selecting solver. User can choose between QLM QPU in CESGA
-    or using QLM simulator PyLinalg
+    Function for selecting solver. User can chose between:
+    * LinAlg: for submitting jobs to a QLM server
+    * PyLinalg: for simulating jobs using myqlm lineal algebra.
 
     Parameters
     ----------
-    
-    QLMASS : Bool
-        If True function will try to use QLM as a Service.
-        If False fucntion will invoque PyLinalg QLM simulator
-        
+
+    qlmass : bool
+        If True  try to use QLM as a Service connection to CESGA QLM
+        If False PyLinalg simulator will be used
 
     Returns
     ----------
-    lineal_qpu : simulator used for solvinf QLM circuits
 
+    lineal_qpu : solver for quantum jobs
     """
-    if QLMASS:
-        try:
-            from qat.qlmaas import QLMaaSConnection
-            connection = QLMaaSConnection()
-            LinAlg = connection.get_qpu("qat.qpus:LinAlg")
-            lineal_qpu = LinAlg()
-        except (ImportError, OSError) as e:
-            print('Problem: usin PyLinalg')
-            from qat.qpus import PyLinalg
-            lineal_qpu = PyLinalg()
+    if qlmass:
+        if global_qlmaas:
+            print('Using: LinAlg')
+            linalg_qpu = LinAlg()
+        else:
+            raise ImportError("""Problem Using QLMaaS.
+            Please create config file or use mylm solver""")
     else:
-        print('User Forces: PyLinalg')
-        from qat.qpus import PyLinalg
-        lineal_qpu = PyLinalg()
-    return lineal_qpu
+        print('Using PyLinalg')
+        linalg_qpu = PyLinalg()
+    return linalg_qpu
+
 
 def im_postprocess(result):
     """
@@ -167,7 +182,7 @@ def step_iqpe(q_prog, q_gate, q_aux, c_bits, l):
     #Getting the principal qbits
     q_bits = q_prog.registers[0]
     #First apply a Haddamard Gate to auxiliar qbit
-    q_prog.apply(H, q_aux)
+    q_prog.apply(qlm.H, q_aux)
     #number of bits for codify phase
     m = len(c_bits)
 
@@ -184,9 +199,9 @@ def step_iqpe(q_prog, q_gate, q_aux, c_bits, l):
     for j in range(m-l+1, m+1, 1):
         theta = 2**(m-l-j+1)
         #print('\t j: {}. theta: {}'.format(j-1, theta))
-        q_prog.cc_apply(c_bits[j-1], PH(-(np.pi/2.0)*theta), q_aux)
+        q_prog.cc_apply(c_bits[j-1], qlm.PH(-(np.pi/2.0)*theta), q_aux)
     #print('m: {}. l: {}'.format(m, l))
-    q_prog.apply(H, q_aux)
+    q_prog.apply(qlm.H, q_aux)
     #print(m-l-1)
     q_prog.measure(q_aux, c_bits[m-l-1])
     return q_prog
@@ -222,7 +237,7 @@ def step_iqpe_easy(q_prog, q_gate, q_aux, c_bits, l):
     #Getting the principal qbits
     q_bits = q_prog.registers[0]
     #First apply a Haddamard Gate to auxiliar qbit
-    q_prog.apply(H, q_aux)
+    q_prog.apply(qlm.H, q_aux)
     #number of bits for codify phase
     m = len(c_bits)
 
@@ -239,10 +254,10 @@ def step_iqpe_easy(q_prog, q_gate, q_aux, c_bits, l):
     for j in range(l):
         theta = 1.0/(2**(l-j-1))
         #print('\t j: {}. theta: {}'.format(j, theta))
-        q_prog.cc_apply(c_bits[j], PH(-(np.pi/2.0)*theta), q_aux)
+        q_prog.cc_apply(c_bits[j], qlm.PH(-(np.pi/2.0)*theta), q_aux)
 
     #print('m: {}. l: {}'.format(m, l))
-    q_prog.apply(H, q_aux)
+    q_prog.apply(qlm.H, q_aux)
     #print(m-l-1)
     q_prog.measure(q_aux, c_bits[l])
     return q_prog
@@ -253,21 +268,28 @@ class IterativeQuantumPE:
     Class for using Iterative Quantum Phase Estimation (IQPE) algorithm
     """
 
-    def __init__(self, q_prog, q_gate, **kwargs):
+    def __init__(self, **kwargs):
         """
 
         Method for initializing the class
-    
+
         Parameters
         ----------
-        
-        q_prog : QLM quantum program (mandatory)
-            Quantum program where the Groover-like operator will be applied
-        q_gate : QLM gate (mandatory)
-            QLM gate that implements the Groover-like operator
+
         kwars : dictionary
             dictionary that allows the configuration of the ML-QPE algorithm:
             Implemented keys:
+            oracle: QLM gate
+                QLM gate with the Oracle for implementing the
+                Groover-like operator:
+                init_q_prog and q_gate will be interpreted as None
+            initial_state : QLM Program
+                QLM Program withe the initial Psi state over the
+                Grover-like operator will be applied
+                Only used if oracle is None
+            grover : QLM gate or routine
+                Grover-like operator which autovalues want to be calculated
+                Only used if oracle is None
             cbits_number : int
                 number of classical bits for phase estimation
             qpu : QLM solver
@@ -280,18 +302,43 @@ class IterativeQuantumPE:
                 algorithm
                 If False step_iqpe will be used for each step.
         """
-        #Initial Quatum Program. For restarting purpouses
-        self.init_q_prog = q_prog
-        #Quantum Gate to apply to quantum program
-        self.q_gate = q_gate
+
         #Setting attributes
+        self.oracle = kwargs.get('oracle', None)
+        if self.oracle is not None:
+            #Creates QLM program from base gate
+            self.init_q_prog = create_qprogram(self.oracle)
+            #Creates the Grover-like operator from oracle
+            self.q_gate = load_q_gate(self.oracle)
+        else:
+            #In this case we load directly the initial state
+            #and the grover operator
+            self.init_q_prog = kwargs.get('initial_state', None)
+            self.q_gate = kwargs.get('grover', None)
+            if (self.init_q_prog is None) or (self.q_gate is None):
+                text = """If oracle was not provided initial_state and grover
+                keys should be provided"""
+                raise KeyError(text)
+
         #Number Of classical bits for estimating phase
         self.cbits_number_ = kwargs.get('cbits_number', 8)
         #Set the QPU to use
-        self.lineal_qpu = kwargs.get('qpu', get_qpu())
+        self.linalg_qpu = kwargs.get('qpu', None)#, get_qpu())
+        if self.linalg_qpu is None:
+            self.linalg_qpu = get_qpu() 
         self.shots = kwargs.get('shots', 0)
-        self.restart()
         self.easy = kwargs.get('easy', False)
+        #Attributes not given as input
+        self.q_prog = None
+        self.q_aux = None
+        self.c_bits = None
+        self.circuit = None
+        self.meas_gates = None
+        self.job = None
+        self.job_result = None
+        self.results = None
+        self.final_results = None
+
 
     def restart(self):
         """
@@ -305,8 +352,7 @@ class IterativeQuantumPE:
         self.job = None
         self.job_result = None
         self.results = None
-
-
+        self.final_results = None
 
     @property
     def cbits_number(self):
@@ -340,9 +386,10 @@ class IterativeQuantumPE:
 
     def get_circuit(self):
         """
-        Creates the quantum circuti from the q_prog property
+        Creates the quantum circuit from the q_prog property
         """
-        self.circuit = self.q_prog.to_circ(submatrices_only=True)
+        #self.circuit = self.q_prog.to_circ(submatrices_only=True)
+        self.circuit = create_circuit(self.q_prog)
         self.meas_gates = [i for i, o in enumerate(self.circuit.ops)\
             if o.type == OpType.MEASURE]
 
@@ -350,25 +397,31 @@ class IterativeQuantumPE:
         """
         Creates the job from the circuit property
         """
-        self.job = self.circuit.to_job(
-            qubits=self.q_aux,
-            nbshots=self.shots,
-            aggregate_data=False
+        #self.job = self.circuit.to_job(
+        #    qubits=self.q_aux,
+        #    nbshots=self.shots,
+        #    aggregate_data=False
+        #)
+        self.job = create_job(
+            self.circuit,
+            shots=self.shots,
+            qubits=[self.q_aux]
         )
+        self.job.aggregate_data = False
 
     def get_job_result(self, qpu=None):
         """
         Submit a job property to QPU and get the results
         """
         if qpu is not None:
-            self.lineal_qpu = qpu
-        self.job_result = run_job(self.lineal_qpu.submit(self.job))
-    
+            self.linalg_qpu = qpu
+        self.job_result = run_job(self.linalg_qpu.submit(self.job))
+
     def iqpe(self, number_of_cbits=None, shots=None):
         """
         This method apply a workflow for executing a complete IQPE
         algorithm
-    
+
         Parameters
         ----------
 
@@ -376,7 +429,6 @@ class IterativeQuantumPE:
             Number of classical bits for storing the phase estimation
         shots : int (overwrite correspondient property)
             Number of shots for executing the QLM job
-    
         """
 
         if number_of_cbits is not None:
@@ -390,6 +442,7 @@ class IterativeQuantumPE:
         self.get_job()
         self.get_job_result()
         self.get_classicalbits()
+        self.proccess_output()
 
 
     def get_classicalbits(self):
@@ -401,4 +454,24 @@ class IterativeQuantumPE:
         list_of_results = [im_postprocess(r) for r in self.job_result]
         self.results = pd.concat(list_of_results)
         self.results.reset_index(drop=True, inplace=True)
+
+    def proccess_output(self):
+        """
+        This function uses the results property and add it additional
+        columns that are useful for Amplitude Amplification procedure
+        """
+        self.final_results = self.results.copy(deep=True)
+        #Eigenvalue of the Grover-like operator
+        self.final_results['Theta_Unitary'] = 2*np.pi*self.final_results['Phi']
+        #Rotation angle for Grover-like operator.
+        self.final_results['Theta'] = np.pi*self.final_results['Phi']
+        #Only angles between 0 an pi
+        self.final_results['theta_90'] = self.final_results['Theta']
+        self.final_results['theta_90'].where(
+            self.final_results['theta_90'] < 0.5*np.pi,
+            np.pi-self.final_results['theta_90'],
+            inplace=True)
+        #Expected value of the function f(x) when x follows a p(x)
+        #distribution probability
+        self.final_results['E_p(f)'] = np.sin(self.final_results['Theta'])**2
 
